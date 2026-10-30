@@ -16,14 +16,20 @@ has to be pip-installed on the Pi.
                                           # (see coursedir.py); default tashua
     python3 gps_server.py --sim --review  # on a PC: review the route library at
                                           # http://127.0.0.1:8080/review.html
+    python3 gps_server.py --sim --mock-remote
+                                          # plus a pretend handheld remote
 
 Binds to 127.0.0.1 by default: the kiosk browser runs on the same Pi and
-nothing else needs to reach it.
+nothing else needs to reach it. The handheld remote is separate: UDP port 8091
+on the hotspot address 10.42.0.1 only, signed with the pairing key in
+<log-dir>/remote.key (see remote.py and remote/PROTOCOL.md).
 
 Trolley API (only when a trolley is configured; see trolley.py):
     GET  /api/trolley            status as Server-Sent Events
     POST /api/trolley/cmd        {"cmd": "stop"} or {"cmd": "goto", "target": ...}
     POST /api/trolley/heartbeat  the screen is alive; the trolley stops without it
+Handheld remote (see remote.py):
+    GET  /api/remote             link state, last seen, the remote's fix and battery
 Course, player and scorecard API (saved under --log-dir; see store.py):
     GET  /api/courses            installed courses, which one is showing
     POST /api/course             {"id"}: show that course (saves it, restarts the server)
@@ -54,6 +60,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import coursedir  # noqa: E402
+import remote  # noqa: E402
 from store import Store  # noqa: E402
 
 APP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app")
@@ -63,6 +70,7 @@ _latest = {"fix": None, "rx": None}  # rx: receiver status for the screen
 _lock = threading.Lock()
 _trolley = {"gate": None}
 _review = {"lib": None}
+_remote = {"link": None}
 _course = {"id": coursedir.DEFAULT}
 _state = {"store": None, "courses": []}  # Store, and coursedir.summary() of each installed course
 
@@ -245,6 +253,9 @@ class Handler(SimpleHTTPRequestHandler):
             if not gate:
                 return self.send_error(404, "No trolley configured")
             return self._stream(gate.status, every_tick=True)
+        if route == "/api/remote":
+            link = _remote["link"]
+            return self._json(200, link.status() if link else {"state": "off"})
         if route == "/api/courses":
             return self._json(200, {"current": _course["id"], "courses": _state["courses"]})
         if route == "/api/player":
@@ -360,6 +371,27 @@ def switch_course(cid):
     return True, "Switching course."
 
 
+def start_remote(args):
+    """The handheld remote's listener. Always on: it waits quietly until
+    pi/hotspot.sh has written the pairing key and brought the hotspot up."""
+    def stop():
+        gate = _trolley["gate"]
+        if gate:
+            gate.command({"cmd": "stop"}, by="remote")
+
+    def trolley_state():
+        gate = _trolley["gate"]
+        return gate.status()["state"] if gate else "none"
+
+    key = remote.mock_key() if args.mock_remote else None
+    bind = args.remote_bind or ("127.0.0.1" if args.mock_remote else remote.HOTSPOT_IP)
+    _remote["link"] = remote.RemoteLink(os.path.join(args.log_dir, remote.KEY_FILE), bind,
+                                        on_stop=stop, trolley_state=trolley_state,
+                                        any_source=args.mock_remote, key=key)
+    if args.mock_remote:
+        remote.MockRemote(key, remote.PORT, _get_fix)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bind", default="127.0.0.1")
@@ -373,6 +405,10 @@ def main():
     ap.add_argument("--trolley-speedup", type=float, default=1.0, help="mock trolley speed x walking pace")
     ap.add_argument("--library-only", action="store_true",
                     help="refuse Next tee / Green side unless an approved route covers it")
+    ap.add_argument("--mock-remote", action="store_true",
+                    help="add a pretend handheld remote talking to the listener on 127.0.0.1")
+    ap.add_argument("--remote-bind", default=None,
+                    help=f"address the remote listener binds (default {remote.HOTSPOT_IP}, the hotspot)")
     ap.add_argument("--review", action="store_true",
                     help="enable the route review page and its API (PC only, not the Pi)")
     ap.add_argument("--log-dir", default=os.path.join(APP_DIR, "..", "logs"),
@@ -408,9 +444,10 @@ def main():
                                        os.path.abspath(args.log_dir), _get_fix,
                                        library=lib, library_only=args.library_only)
 
+    start_remote(args)
     print(f"Serving {os.path.abspath(APP_DIR)} [{load_course()['name']}] on http://{args.bind}:{args.port}"
           f" ({'SIM' if args.sim else 'gpsd'}{', mock trolley' if args.mock_trolley else ''}"
-          f"{', route review' if args.review else ''})")
+          f"{', mock remote' if args.mock_remote else ''}{', route review' if args.review else ''})")
     for attempt in range(20):  # after a course switch the old process may still hold the port
         try:
             server = ThreadingHTTPServer((args.bind, args.port), Handler)

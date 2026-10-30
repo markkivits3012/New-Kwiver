@@ -78,7 +78,8 @@ app falls back to drawn shapes.
   **Past rounds** lists finished rounds, newest first, from every course; tap
   one to see its card. They're kept in `/var/lib/golf-map/rounds.jsonl` on the Pi.
 - **Settings:** GPS details (fix, satellites, accuracy, position), the handheld
-  remote (not built yet) and the trolley link. **Touch calibration** is here too.
+  remote (link, last seen, its GPS fix, distance from the cart, battery; see
+  [remote/README.md](remote/README.md)) and the trolley link. **Touch calibration** is here too.
   **My Bag:** tap each club you carry and enter its carry yards (**Not in bag**
   removes it). **+ Custom** adds a club of your own (up to 10, such as "52°" or
   "Chipper"): type its name on the on-screen keyboard, then its yards. Saved in
@@ -191,6 +192,8 @@ python server/gps_server.py --sim --review       # then open http://127.0.0.1:80
 | `tools/make_test_course.py` | Builds a made-up test course from `courses/<id>/course-def.json` |
 | `app/menus.js`, `server/store.py` | Menu, Score and Settings screens; saved course, handicap, tees and rounds (`/var/lib/golf-map/` on the Pi) |
 | `pi/update.sh`, `tools/make_update.py` | Update the Pi from a USB stick, no internet needed |
+| `remote/` | Handheld remote: ESP32-S3 firmware (PlatformIO), [PROTOCOL.md](remote/PROTOCOL.md), flashing and pairing |
+| `server/remote.py`, `pi/hotspot.sh` | The Pi's side of the remote: UDP listener (plus `--mock-remote`), and the Wi-Fi hotspot and pairing key |
 | `server/coursedir.py` | Where each course's files live (`--course`; Tashua is the default) |
 | `app/view3d.js`, `app/terrain3d/` | 3D view (WebGL) and its lidar heightmaps |
 | `tools/fetch_elevation.py` | Downloads the heightmaps for the 3D view |

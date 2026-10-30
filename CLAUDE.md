@@ -13,9 +13,10 @@ Python server. **The Pi has no internet on the course.**
 | Path | What |
 |---|---|
 | `app/` | Front end: `index.html`, `app.js` (map, holes, tees, next-hole prompt), `menus.js` (Menu / Score / Settings), `style.css` |
-| `server/` | `gps_server.py` (HTTP + SSE), `store.py` (saved state), `coursedir.py` (where a course's files live) |
+| `server/` | `gps_server.py` (HTTP + SSE), `store.py` (saved state), `coursedir.py` (where a course's files live), `remote.py` (handheld remote's UDP link) |
+| `remote/` | Handheld remote firmware (ESP32-S3, Arduino under PlatformIO); `PROTOCOL.md` is the wire format, keep it and `server/remote.py` in step |
 | `courses/<id>/` | Every course except Tashua Knolls, which stays at the project root |
-| `pi/` | `install.sh`, `update.sh`, `kiosk.sh`, `kiosk-setup.sh`, `set-course.sh`, `golf-map.service` |
+| `pi/` | `install.sh`, `update.sh`, `kiosk.sh`, `kiosk-setup.sh`, `set-course.sh`, `hotspot.sh`, `golf-map.service` |
 | `tools/` | Course building (`new_course.py`, `build_all.py`, `build_course.py`, fetchers), `make_update.py` (USB package) |
 | `_pi-snapshot/` | Gitignored raw copy taken from the Pi. Reference only; never edit |
 

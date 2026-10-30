@@ -4,8 +4,33 @@
     {
       "name": "golf-map-sim",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["server/gps_server.py", "--sim", "--sim-rate", "0.25", "--mock-trolley", "--trolley-speedup", "4"],
+      "runtimeArgs": [
+        "server/gps_server.py",
+        "--sim",
+        "--sim-rate",
+        "0.25",
+        "--mock-trolley",
+        "--trolley-speedup",
+        "4"
+      ],
       "port": 8080
+    },
+    {
+      "name": "golf-map-remote",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "server/gps_server.py",
+        "--sim",
+        "--sim-rate",
+        "0.25",
+        "--mock-trolley",
+        "--trolley-speedup",
+        "4",
+        "--mock-remote",
+        "--port",
+        "8081"
+      ],
+      "port": 8081
     }
   ]
 }

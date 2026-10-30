@@ -87,16 +87,16 @@ class TrolleyGate:
         raise ValueError("Unknown target.")
 
     # ---- commands ----------------------------------------------------------------
-    def command(self, body):
-        """Handle one command from the screen. -> (ok, message)."""
+    def command(self, body, by="screen"):
+        """Handle one command from the screen (or STOP from the remote). -> (ok, message)."""
         cmd = body.get("cmd")
         status = self.t.status()
-        entry = {"cmd": cmd, "target": body.get("target"), "hole": body.get("hole"),
+        entry = {"by": by, "cmd": cmd, "target": body.get("target"), "hole": body.get("hole"),
                  "request": [body.get("lat"), body.get("lon")],
                  "trolley": [status["lat"], status["lon"]], "state_before": status["state"]}
         try:
             if cmd == "stop":
-                self.t.stop("Stopped from the screen")
+                self.t.stop(f"Stopped from the {by}")
                 ok, msg = True, "Stopped."
             elif cmd == "goto":
                 if body.get("target") not in TARGETS:

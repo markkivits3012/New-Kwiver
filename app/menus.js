@@ -2,7 +2,8 @@
 // Settings (GPS and remote status, My Bag) screens, the banner that offers to
 // switch course when the GPS is at another installed course, and the club
 // suggestion under the Center yardage. Talks to the server's /api/courses,
-// /api/course, /api/player, /api/round, /api/rounds and /api/bag (store.py);
+// /api/course, /api/player, /api/round, /api/rounds and /api/bag (store.py),
+// and /api/remote (remote.py);
 // reads the map's state through window.APP (end of app.js).
 (function () {
   "use strict";
@@ -34,6 +35,7 @@
   let history = null;          // /api/rounds: finished rounds, newest first
   let histSel = 0, histPage = 0;
   let bag = { clubs: {} };     // /api/bag: {club: carry yards}
+  let remote = null;           // /api/remote: the handheld remote's link, while Settings is open
   let lastDetect = 0;
   const dismissed = {};        // courses the golfer said "not now" to
 
@@ -153,6 +155,8 @@
     const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
     return Math.hypot(Math.max(w - lon, 0, lon - e) * kx, Math.max(s - lat, 0, lat - n) * ky);
   }
+  const distYd = (a, b) => Math.hypot((a.lon - b.lon) * 111320 * Math.cos(a.lat * Math.PI / 180),
+                                      (a.lat - b.lat) * 110540) * A.YD;
   // the course whose holes are nearest (within HERE_M); courses side by side
   // (Fairchild Wheeler Red and Black) overlap, and a tie keeps the current one
   function courseAt(lat, lon) {
@@ -383,6 +387,18 @@
     const pos = fresh ? `${f.lat.toFixed(5)}, ${f.lon.toFixed(5)}` : "–";
     const sats = rx && !rx.sim && rx.seen != null ? `${rx.used ?? 0} used of ${rx.seen} seen` : "–";
     const row = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+    const R = remote || { state: "off" };
+    const [rstate, rdot] = {
+      off: ["Not paired", "off"], nohotspot: ["Hotspot not running", "bad"], waiting: ["Waiting for the remote", "weak"],
+      linked: [R.mock ? "Mock (testing)" : "Connected", "ok"], lost: ["No contact", "bad"],
+    }[R.state] || ["Unknown", "off"];
+    const rf = R.fix;
+    const rgps = !rf ? "No fix" : `${rf.q === 2 ? "DGPS" : "Fix"}${rf.sats != null ? `, ${rf.sats} sats` : ""}${rf.acc != null ? `, ±${Math.round(rf.acc * A.YD)} yd` : ""}`;
+    const rgap = rf && fresh ? `${Math.round(distYd(f, rf))} yd` : "–";
+    const rseen = R.seen ? `${Math.max(0, Math.round(R.t - R.seen))} s ago` : "Never";
+    const remoteCard = R.state === "off" || R.state === "nohotspot"
+      ? `${row("Link", rstate)}<p class="note">Set up the hotspot and pairing key with pi/hotspot.sh (see remote/README.md).</p>`
+      : `${row("Link", rstate)}${row("Last seen", rseen)}${row("Remote GPS", rgps)}${row("From cart", rgap)}${row("Battery", R.bat != null ? `${R.bat}%` : "–")}`;
     const T = A.trolley();
     const trolley = T ? `<div class="card"><div class="cardhead"><i class="sdot ${T.lost ? "bad" : "ok"}"></i>Trolley</div>
       ${row("Link", T.lost ? "No contact" : T.mock ? "Mock (testing)" : "Connected")}
@@ -391,9 +407,8 @@
       <div class="col"><div class="card"><div class="cardhead"><i class="sdot ${dot}"></i>GPS</div>
         ${row("Status", state)}${row("Satellites", sats)}${row("Accuracy", acc)}${row("Last fix", age)}${row("Position", pos)}
       </div></div>
-      <div class="col"><div class="card"><div class="cardhead"><i class="sdot off"></i>Remote control</div>
-        ${row("Status", "Not set up")}
-        <p class="note">The handheld remote isn't built yet. Its connection will show here.</p></div>
+      <div class="col"><div class="card"><div class="cardhead"><i class="sdot ${rdot}"></i>Remote control</div>
+        ${remoteCard}</div>
         ${trolley}
         <div class="mrow"><button class="tbtn" data-act="btnbag">My Bag</button>
           <button class="tbtn" data-act="touch">Touch calibration</button></div>
@@ -611,7 +626,10 @@
   onRelease($("coursebanner"), act);
 
   A.hooks.render = () => { badge(); suggestClub(); };
-  setInterval(() => { if (open === "settings" || open === "menu") draw(); }, 1000);
+  setInterval(() => {
+    if (open === "settings") api("/api/remote").then(r => { remote = r; }, () => { remote = null; });
+    if (open === "settings" || open === "menu") draw();
+  }, 1000);
 
   // ---- start ---------------------------------------------------------------------------
   Promise.all([

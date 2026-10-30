@@ -5,6 +5,7 @@
     player.json    handicap index, and the tee picked for each course
     round.json     the round in progress
     rounds.jsonl   finished rounds, one per line
+    bag.json       the clubs the golfer carries and how far each goes
 
 Every write goes to a temp file that is renamed into place, so a power cut
 (the cart's key switch) leaves the old file, never half of one.
@@ -18,6 +19,8 @@ import time
 ID = re.compile(r"[a-z0-9_-]{1,40}")
 MAX_HOLES = 36
 HCP_RANGE = (-10.0, 54.0)  # WHS handicap index limits (plus 10 to 54)
+MAX_ROUNDS = 500           # history sent to the screen, newest first
+MAX_CLUBS = 20
 
 
 class Store:
@@ -90,18 +93,23 @@ class Store:
         return r if isinstance(r, dict) else None
 
     def save_round(self, body):
-        """Replace the round in progress: {"course", "tee", "hcp", "scores": [n or null, ...]}."""
-        scores = body.get("scores")
+        """Replace the round in progress: {"course", "name", "tee", "hcp",
+        "scores": [n or null, ...], "par": [n or null, ...]}. The course name
+        and pars go with it so the history can show it from any course."""
+        scores, pars = body.get("scores"), body.get("par")
         if not (ID.fullmatch(str(body.get("course", "")))
                 and isinstance(scores, list) and 0 < len(scores) <= MAX_HOLES
-                and all(s is None or (isinstance(s, int) and not isinstance(s, bool) and 1 <= s <= 30)
-                        for s in scores)
+                and all(s is None or (_int(s) and 1 <= s <= 30) for s in scores)
+                and (pars is None or (isinstance(pars, list) and len(pars) == len(scores)
+                                      and all(p is None or (_int(p) and 2 <= p <= 7) for p in pars)))
+                and (body.get("name") is None or (isinstance(body["name"], str) and len(body["name"]) <= 60))
                 and (body.get("tee") is None or _name(body["tee"]))
                 and (body.get("hcp") is None or (_number(body["hcp"]) and HCP_RANGE[0] <= body["hcp"] <= HCP_RANGE[1]))):
             return False, "Bad round."
         with self._lock:
             old = self.round() or {}
-            r = {"course": body["course"], "tee": body.get("tee"), "hcp": body.get("hcp"), "scores": scores,
+            r = {"course": body["course"], "name": body.get("name"), "tee": body.get("tee"),
+                 "hcp": body.get("hcp"), "scores": scores, "par": pars,
                  "started": old.get("started") if old.get("course") == body["course"] else None}
             r["started"] = r["started"] or time.strftime("%Y-%m-%dT%H:%M:%S")
             self._write("round.json", r)
@@ -124,9 +132,45 @@ class Store:
             os.remove(self._path("round.json"))
             return True, "Round saved." if kept else "Round cleared."
 
+    def rounds(self):
+        """Finished rounds, newest first. A line cut short by a power cut is skipped."""
+        out = []
+        try:
+            with open(self._path("rounds.jsonl"), encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        r = json.loads(line)
+                    except ValueError:
+                        continue
+                    if isinstance(r, dict) and isinstance(r.get("scores"), list):
+                        out.append(r)
+        except OSError:
+            pass
+        return out[::-1][:MAX_ROUNDS]
+
+    # ---- my bag: club -> carry yards -------------------------------------------------
+    def bag(self):
+        b = self._read("bag.json")
+        return b if isinstance(b, dict) and isinstance(b.get("clubs"), dict) else {"clubs": {}}
+
+    def save_bag(self, body):
+        """Replace the bag: {"clubs": {"Driver": 240, "7 iron": 150, ...}}."""
+        clubs = body.get("clubs")
+        if not (isinstance(clubs, dict) and len(clubs) <= MAX_CLUBS
+                and all(_name(k) and _int(v) and 1 <= v <= 400 for k, v in clubs.items())):
+            return False, "Bad club list."
+        with self._lock:
+            b = {"clubs": clubs}
+            self._write("bag.json", b)
+            return True, b
+
 
 def _number(v):
     return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _int(v):
+    return isinstance(v, int) and not isinstance(v, bool)
 
 
 def _name(v):

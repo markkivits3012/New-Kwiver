@@ -1,7 +1,8 @@
-// Menu (course and tees), Score (handicap and hole-by-hole score) and
-// Settings (GPS and remote status) screens, plus the banner that offers to
-// switch course when the GPS is at another installed course. Talks to the
-// server's /api/courses, /api/course, /api/player and /api/round (store.py);
+// Menu (course and tees), Score (handicap, hole-by-hole score, past rounds) and
+// Settings (GPS and remote status, My Bag) screens, the banner that offers to
+// switch course when the GPS is at another installed course, and the club
+// suggestion under the Center yardage. Talks to the server's /api/courses,
+// /api/course, /api/player, /api/round, /api/rounds and /api/bag (store.py);
 // reads the map's state through window.APP (end of app.js).
 (function () {
   "use strict";
@@ -12,6 +13,11 @@
   const HERE_M = 300;          // within this of a course's box counts as "at" it
   const DETECT_EVERY_MS = 20000;
   const SAVE_DELAY_MS = 400;   // score taps are saved after this pause
+  const HIST_PAGE = 4;         // past rounds listed per page
+  const CLUBS = ["Driver", "3 wood", "5 wood", "7 wood", "2 hybrid", "3 hybrid", "4 hybrid", "5 hybrid",
+                 "3 iron", "4 iron", "5 iron", "6 iron", "7 iron", "8 iron", "9 iron", "PW", "GW", "SW", "LW"];
+  const CLUB_MIN_YD = 20;      // nearer the pin than this: no club suggested (putting)
+  const CLUB_SLACK_YD = 3;     // a club this much short of the distance still counts as reaching
 
   // ---- state ---------------------------------------------------------------------
   let courses = [];            // /api/courses: [{id, name, holes, par, bbox}]
@@ -21,8 +27,11 @@
   let teeSets = A.mapTeeSets(); // [{name, frac, yards[], color?, rating?, slope?, est?}]
   let tee = 0;                 // index into teeSets
   let round = null;            // {course, tee, hcp, scores: [n or null per hole]}
-  let open = null;             // "menu" | "score" | "settings" | null
+  let open = null;             // "menu" | "score" | "history" | "settings" | "bag" | null
   let sel = 0;                 // hole picked on the score screen
+  let history = null;          // /api/rounds: finished rounds, newest first
+  let histSel = 0, histPage = 0;
+  let bag = { clubs: {} };     // /api/bag: {club: carry yards}
   let lastDetect = 0;
   const dismissed = {};        // courses the golfer said "not now" to
 
@@ -110,9 +119,11 @@
 
   // ---- round -----------------------------------------------------------------------
   let saveTimer = null;
+  // the course name and pars travel with the round, for the history
+  const stamped = r => ({ ...r, name: C.name, par: A.holes.map((h, i) => par(i) || null) });
   function saveRound() {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => api("/api/round", round).catch(e => toast(`Score not saved: ${e}`)), SAVE_DELAY_MS);
+    saveTimer = setTimeout(() => api("/api/round", stamped(round)).catch(e => toast(`Score not saved: ${e}`)), SAVE_DELAY_MS);
   }
   function setScore(i, v) {
     if (!round) round = { course: current, tee: teeSets[tee].name, hcp: player.hcp, scores: Array(N).fill(null) };
@@ -128,7 +139,8 @@
     badge();
     if (!had) return Promise.resolve();
     // a pending save may not have gone out yet: send the last state, then finish
-    return api("/api/round", had).catch(() => {})
+    history = null; // fetched again when next shown
+    return api("/api/round", stamped(had)).catch(() => {})
       .then(() => api("/api/round/finish", { save }))
       .then(msg => toast(msg), e => toast(`Not saved: ${e}`));
   }
@@ -188,18 +200,40 @@
 
   // ---- sheets (full-screen panels) ---------------------------------------------------
   function show(which) {
+    if (which === "score" && open !== "history") sel = holeNow();
+    if (which === "history" && !history) {
+      histSel = histPage = 0;
+      api("/api/rounds").then(r => { history = r; draw(); }, e => toast(`Couldn't load rounds: ${e}`));
+    }
     open = which;
-    if (which === "score") sel = A.hole();
     $("sheet").hidden = !which;
     draw();
   }
   function draw() {
     if (!open) return;
-    $("sheettitle").textContent = { menu: "Menu", score: "Score", settings: "Settings" }[open];
+    $("sheettitle").textContent = { menu: "Menu", score: "Score", history: "Past rounds", settings: "Settings", bag: "My Bag" }[open];
     const stop = A.trolley() ? `<button class="tbtn stop" data-act="stop">STOP</button>` : "";
-    if (open === "menu") { $("sheettools").innerHTML = stop; $("sheetbody").innerHTML = menuHtml(); }
-    if (open === "score") { $("sheettools").innerHTML = scoreTools() + stop; $("sheetbody").innerHTML = scoreHtml(); }
-    if (open === "settings") { $("sheettools").innerHTML = stop; $("sheetbody").innerHTML = settingsHtml(); }
+    const back = (to, label) => `<button class="chipbtn" data-act="${to}">‹ <b>${label}</b></button>`;
+    const [tools, body] = {
+      menu: () => ["", menuHtml()],
+      score: () => [scoreTools(), scoreHtml()],
+      history: () => [back("btnscore", "Score"), historyHtml()],
+      settings: () => ["", settingsHtml()],
+      bag: () => [`<span class="chipinfo">Tap a club to set its carry</span>` + back("btnsettings", "Settings"), bagHtml()],
+    }[open]();
+    $("sheettools").innerHTML = tools + stop;
+    $("sheetbody").innerHTML = body;
+  }
+
+  // The hole to score when the Score screen opens: the one the GPS puts the
+  // cart on (else the one on screen). At a tee with that hole and the one
+  // before both blank, it's the hole just finished that wants its score.
+  function holeNow() {
+    const g = A.gpsHole();
+    const i = g == null ? A.hole() : g;
+    const s = round ? round.scores : [];
+    if (g != null && i > 0 && A.atTee(i) && s[i] == null && s[i - 1] == null) return i - 1;
+    return i;
   }
 
   function menuHtml() {
@@ -234,7 +268,8 @@
 
   function scoreTools() {
     return `<button class="chipbtn" data-act="hcp">HCP <b>${fmtHcp(round ? round.hcp : player.hcp)}</b></button>
-      <span class="chipinfo">${esc(teeSets[tee].name)} tees</span>`;
+      <span class="chipinfo">${esc(teeSets[tee].name)} tees</span>
+      <button class="chipbtn" data-act="history">Past rounds</button>`;
   }
 
   function scoreHtml() {
@@ -256,17 +291,7 @@
       </div>
       <div class="mrow"><button class="tbtn" data-act="par">Par</button><button class="tbtn" data-act="clear">Clear</button></div>
     </div>`;
-    // the card: rows of up to 9 holes, each with its subtotal
-    let grid = "";
-    for (let a = 0; a < N; a += 9) {
-      const idx = [...Array(Math.min(9, N - a)).keys()].map(k => a + k);
-      const sub = idx.reduce((t, i) => t + (s[i] || 0), 0), subPar = idx.reduce((t, i) => t + (par(i) || 0), 0);
-      const label = N <= 9 ? "Tot" : a === 0 ? "Out" : "In";
-      grid += `<div class="cardrow">${idx.map(i => `<button class="cell${i === sel ? " sel" : ""}" data-act="sel" data-arg="${i}">
-          <span class="ch">${A.holes[i].no}</span><span class="cp">${par(i) ?? ""}</span>
-          <span class="cs ${cls(s[i], par(i))}">${s[i] ?? ""}</span></button>`).join("")}
-        <div class="cell sum"><span class="ch">${label}</span><span class="cp">${subPar}</span><span class="cs">${sub || ""}</span></div></div>`;
-    }
+    const grid = cardGrid(s, A.holes.map((h, i) => par(i)), A.holes.map(h => h.no), sel);
     const t = totals();
     const sum = `<div class="totals">
       <div><span>Gross</span><b>${t.played ? t.gross : "–"}</b></div>
@@ -276,6 +301,64 @@
     return `<div class="cols">${left}<div class="col">${grid}${sum}
       <div class="mrow"><button class="tbtn" data-act="finish"${round ? "" : " disabled"}>Finish round</button></div></div></div>`;
   }
+  // the card: rows of up to 9 holes, each with its subtotal. With sel, the
+  // cells are buttons that pick the hole; without, it's for looking only.
+  function cardGrid(s, pars, nos, sel) {
+    const n = s.length, tag = sel == null ? "div" : "button";
+    let grid = "";
+    for (let a = 0; a < n; a += 9) {
+      const idx = [...Array(Math.min(9, n - a)).keys()].map(k => a + k);
+      const sub = idx.reduce((t, i) => t + (s[i] || 0), 0), subPar = idx.reduce((t, i) => t + (pars[i] || 0), 0);
+      const label = n <= 9 ? "Tot" : a === 0 ? "Out" : "In";
+      grid += `<div class="cardrow">${idx.map(i => `<${tag} class="cell${i === sel ? " sel" : ""}"${sel == null ? "" : ` data-act="sel" data-arg="${i}"`}>
+          <span class="ch">${nos[i] ?? i + 1}</span><span class="cp">${pars[i] ?? ""}</span>
+          <span class="cs ${cls(s[i], pars[i])}">${s[i] ?? ""}</span></${tag}>`).join("")}
+        <div class="cell sum"><span class="ch">${label}</span><span class="cp">${subPar || ""}</span><span class="cs">${sub || ""}</span></div></div>`;
+    }
+    return grid;
+  }
+
+  // ---- past rounds -----------------------------------------------------------------
+  const roundName = r => r.name || (courses.find(c => c.id === r.course) || {}).name || r.course;
+  // pars saved with the round; older rounds from this course use today's card
+  const roundPars = r => (Array.isArray(r.par) ? r.par
+    : r.course === current && r.scores.length === N ? A.holes.map((h, i) => par(i)) : r.scores.map(() => null));
+  function roundSum(r) {
+    const pars = roundPars(r);
+    const played = r.scores.map((v, i) => i).filter(i => r.scores[i] != null);
+    const gross = played.reduce((t, i) => t + r.scores[i], 0);
+    const toPar = played.every(i => pars[i]) ? played.reduce((t, i) => t + r.scores[i] - pars[i], 0) : null;
+    return { played: played.length, gross, toPar };
+  }
+  const fmtDate = iso => {
+    const d = new Date(iso);
+    return isNaN(d) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  };
+  function historyHtml() {
+    if (!history) return `<p class="note">Loading…</p>`;
+    if (!history.length) return `<p class="note">No finished rounds yet. Finish a round on the Score screen and it's kept here.</p>`;
+    const pages = Math.ceil(history.length / HIST_PAGE);
+    const items = history.slice(histPage * HIST_PAGE, (histPage + 1) * HIST_PAGE).map((r, k) => {
+      const i = histPage * HIST_PAGE + k, t = roundSum(r), n = r.scores.length;
+      return `<button class="item${i === histSel ? " on" : ""}" data-act="hist" data-arg="${i}">
+        <span class="itemname"><span class="grow">${esc(roundName(r))}</span><span class="itemscore">${t.gross}</span></span>
+        <span class="itemsub">${fmtDate(r.started)} · ${t.played === n ? `${n} holes` : `${t.played} of ${n}`}${t.toPar != null ? ` · ${fmtPar(t.toPar)}` : ""}</span></button>`;
+    }).join("");
+    const r = history[histSel], t = roundSum(r), pars = roundPars(r);
+    const nos = r.course === current ? A.holes.map(h => h.no) : [];
+    const kv = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
+    return `<div class="cols">
+      <div class="col histlist"><div class="list">${items}</div>
+        <div class="mrow"><button class="tbtn" data-act="histpage" data-arg="${histPage - 1}"${histPage ? "" : " disabled"}>‹ Newer</button>
+          <span class="pageno">${histPage + 1} / ${pages}</span>
+          <button class="tbtn" data-act="histpage" data-arg="${histPage + 1}"${histPage < pages - 1 ? "" : " disabled"}>Older ›</button></div></div>
+      <div class="col"><div class="histhead"><b>${esc(roundName(r))}</b>
+          <span>${fmtDate(r.started)}${r.tee ? ` · ${esc(r.tee)} tees` : ""}${r.hcp != null ? ` · HCP ${fmtHcp(r.hcp)}` : ""}</span></div>
+        ${cardGrid(r.scores, pars, nos, null)}
+        <div class="totals">${kv("Gross", t.played ? t.gross : "–")}${kv("To par", t.toPar != null && t.played ? fmtPar(t.toPar) : "–")}${kv("Holes", t.played)}</div>
+      </div></div>`;
+  }
+
   function cls(v, p) {
     if (v == null || !p) return "";
     const d = v - p;
@@ -310,20 +393,61 @@
         ${row("Status", "Not set up")}
         <p class="note">The handheld remote isn't built yet. Its connection will show here.</p></div>
         ${trolley}
-        <div class="mrow"><button class="tbtn" data-act="touch">Touch calibration</button></div>
+        <div class="mrow"><button class="tbtn" data-act="btnbag">My Bag</button>
+          <button class="tbtn" data-act="touch">Touch calibration</button></div>
       </div></div>`;
   }
 
-  // ---- handicap keypad ---------------------------------------------------------------
+  // ---- my bag and the club suggestion ---------------------------------------------------
+  function bagHtml() {
+    const tiles = CLUBS.map(c => {
+      const y = bag.clubs[c];
+      return `<button class="club${y ? " on" : ""}" data-act="club" data-arg="${esc(c)}">
+        <span class="clubname">${esc(c)}</span><span class="clubyd">${y ? `${y} yds` : "+ Add"}</span></button>`;
+    }).join("");
+    return `<div class="clubgrid">${tiles}</div>`;
+  }
+  function saveBag(clubs) {
+    api("/api/bag", { clubs }).then(b => { bag = b; closeModal(); draw(); suggestClub(); }, e => toast(String(e)));
+  }
+  // the shortest club in the bag that carries the distance (else the longest)
+  function clubFor(yds) {
+    const list = Object.entries(bag.clubs).sort((a, b) => a[1] - b[1]);
+    if (!list.length || !(yds >= CLUB_MIN_YD)) return null;
+    return list.find(([, c]) => c >= yds - CLUB_SLACK_YD) || list[list.length - 1];
+  }
+  function suggestClub() {
+    const c = clubFor(A.toPin()), el = $("club");
+    el.hidden = !c;
+    if (c) el.innerHTML = `${esc(c[0])} <span>· ${c[1]}</span>`;
+  }
+
+  // ---- keypad: handicap index, or a club's carry yards -------------------------------------
   let pad = "";
   let padPlus = false;
+  let padClub = null;          // the club being set, or null for the handicap
   function keypad() {
     const h = round ? round.hcp : player.hcp;
+    padClub = null;
     padPlus = h != null && h < 0;
     pad = h == null ? "" : Math.abs(h).toFixed(1).replace(/\.0$/, "");
     drawPad();
   }
+  function clubPad(c) {
+    padClub = c;
+    pad = bag.clubs[c] ? String(bag.clubs[c]) : "";
+    drawPad();
+  }
   function drawPad() {
+    if (padClub) {
+      const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "⌫"];
+      return modal(`<h2>${esc(padClub)}: carry yards</h2>
+        <div class="padval">${pad || "&nbsp;"}</div>
+        <div class="pad">${keys.map(k => `<button class="tbtn" data-act="key" data-arg="${k}">${k}</button>`).join("")}</div>
+        <div class="mrow"><button class="tbtn" data-act="club-remove"${bag.clubs[padClub] ? "" : " disabled"}>Not in bag</button>
+          <button class="tbtn" data-act="close">Cancel</button>
+          <button class="tbtn go" data-act="club-save">Save</button></div>`, true);
+    }
     const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "⌫"];
     modal(`<h2>Handicap index</h2>
       <div class="padval">${padPlus ? "+" : ""}${pad || "&nbsp;"}</div>
@@ -335,6 +459,7 @@
   }
   function key(k) {
     if (k === "⌫") pad = pad.slice(0, -1);
+    else if (padClub) { if (pad.length < 3 && (pad || k !== "0")) pad += k; }
     else if (k === "." ? !pad.includes(".") : !/\.\d$/.test(pad) && pad.replace(".", "").length < 3) pad += k;
     drawPad();
   }
@@ -394,6 +519,17 @@
       case "btnmenu": return show(open === "menu" ? null : "menu");
       case "btnscore": return show(open === "score" ? null : "score");
       case "btnsettings": return show(open === "settings" ? null : "settings");
+      case "btnbag": return show("bag");
+      case "history": return show("history");
+      case "hist": histSel = +arg; return draw();
+      case "histpage": histPage = +arg; histSel = histPage * HIST_PAGE; return draw();
+      case "club": return clubPad(arg);
+      case "club-remove": { const c = { ...bag.clubs }; delete c[padClub]; return saveBag(c); }
+      case "club-save": {
+        const y = parseInt(pad, 10);
+        if (!(y >= 1 && y <= 400)) return toast("Carry must be 1 to 400 yards.");
+        return saveBag({ ...bag.clubs, [padClub]: y });
+      }
       case "sheetclose": return show(null);
       case "course": {
         const c = courses.find(x => x.id === arg);
@@ -432,7 +568,7 @@
   onRelease($("modal"), act);
   onRelease($("coursebanner"), act);
 
-  A.hooks.render = badge;
+  A.hooks.render = () => { badge(); suggestClub(); };
   setInterval(() => { if (open === "settings" || open === "menu") draw(); }, 1000);
 
   // ---- start ---------------------------------------------------------------------------
@@ -440,8 +576,9 @@
     api("/api/courses").catch(() => null),
     api("/api/player").catch(() => null),
     api("/api/round").catch(() => null),
+    api("/api/bag").catch(() => null),
     fetch("scorecard.json").then(r => (r.ok ? r.json() : null)).catch(() => null),
-  ]).then(([cs, p, r, sc]) => {
+  ]).then(([cs, p, r, b, sc]) => {
     if (cs) { courses = cs.courses; current = cs.current; }
     if (p) player = { hcp: null, tees: {}, ...p };
     card = sc;
@@ -455,7 +592,9 @@
       if (r.course === current && r.scores.length === N) round = r;
       else api("/api/round/finish", { save: true }).catch(() => {});
     }
+    if (b) bag = b;
     badge();
+    suggestClub();
     const f = A.fix();
     if (f) A.hooks.fix(f);
   });

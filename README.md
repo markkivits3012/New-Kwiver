@@ -51,6 +51,9 @@ app falls back to drawn shapes.
 
 - **Right panel:** hole number, par and yardage, plus yards to the back, center
   and front of the green from the cart. With no GPS fix it measures from the tee.
+  With clubs in **My Bag**, a club is suggested under the Center number: the
+  shortest club whose carry reaches the pin (within 3 yd), else the longest.
+  None is shown inside 20 yd.
 - **Tap the map:** yards from the cart to that spot and from the spot to the pin.
   Tap the marker again to clear it.
 - **Aim targets** (white rings) show yards from the cart.
@@ -66,12 +69,18 @@ app falls back to drawn shapes.
   When the GPS shows the cart at another installed course, a banner offers to
   switch. Switching restarts the map server on that course and reloads the screen.
 - **Score:** set your handicap index (HCP), then tap − / + / Par for each hole;
-  tap a hole on the card to change it. It shows gross, to par and net (with a
+  tap a hole on the card to change it. It opens on the hole the GPS puts the cart
+  on (the hole on screen without a fix). At a tee, with that hole and the one
+  before still blank, it opens on the hole just finished. It shows gross, to par and net (with a
   course's `scorecard.json`, net counts handicap strokes hole by hole; see
   [BUILDING.md](BUILDING.md)). **Finish round** keeps it in the round history.
   Scores are saved on the Pi as you go, so a power cut doesn't lose them.
+  **Past rounds** lists finished rounds, newest first, from every course; tap
+  one to see its card. They're kept in `/var/lib/golf-map/rounds.jsonl` on the Pi.
 - **Settings:** GPS details (fix, satellites, accuracy, position), the handheld
   remote (not built yet) and the trolley link. **Touch calibration** is here too.
+  **My Bag:** tap each club you carry and enter its carry yards (**Not in bag**
+  removes it). Saved in `/var/lib/golf-map/bag.json`.
 - **3D button:** a live 3D view from behind and above the cart (or the tee),
   looking down the hole, with yards to the pin and each aim target. It follows
   the GPS. Tap the view or press **2D** to go back.

@@ -30,8 +30,11 @@ Course, player and scorecard API (saved under --log-dir; see store.py):
     GET  /api/player             {"hcp", "tees": {course: tee}}
     POST /api/player             change either
     GET  /api/round              the round in progress, or {}
-    POST /api/round              {"course", "tee", "hcp", "scores": [...]}
+    POST /api/round              {"course", "name", "tee", "hcp", "scores": [...], "par": [...]}
     POST /api/round/finish       {"save": true} keeps it in rounds.jsonl
+    GET  /api/rounds             finished rounds, newest first
+    GET  /api/bag                {"clubs": {club: carry yards}}
+    POST /api/bag                replace it
 Route review API (only with --review, on a PC):
     GET  /api/routes             the library (server/routes.json)
     POST /api/routes/review      {"id", "status", "by", "note"}
@@ -248,6 +251,10 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(200, _state["store"].player())
         if route == "/api/round":
             return self._json(200, _state["store"].round() or {})
+        if route == "/api/rounds":
+            return self._json(200, _state["store"].rounds())
+        if route == "/api/bag":
+            return self._json(200, _state["store"].bag())
         if route == "/api/routes":
             if not _review["lib"]:
                 return self.send_error(404, "Start the server with --review")
@@ -279,7 +286,7 @@ class Handler(SimpleHTTPRequestHandler):
         gate, lib = _trolley["gate"], _review["lib"]
         if not ((route in ("/api/trolley/cmd", "/api/trolley/heartbeat") and gate)
                 or (route in ("/api/routes/review", "/api/routes/export") and lib)
-                or route in ("/api/course", "/api/player", "/api/round", "/api/round/finish")):
+                or route in ("/api/course", "/api/player", "/api/round", "/api/round/finish", "/api/bag")):
             return self.send_error(404)
         # Custom header + JSON type: a cross-site form or fetch can't send these
         # without a CORS preflight, which this server never approves.
@@ -307,6 +314,8 @@ class Handler(SimpleHTTPRequestHandler):
             ok, msg = store.save_round(body)
         elif route == "/api/round/finish":
             ok, msg = store.finish_round(body.get("save", True) is not False)
+        elif route == "/api/bag":
+            ok, msg = store.save_bag(body)
         elif route == "/api/trolley/heartbeat":
             gate.heartbeat()
             ok, msg = True, "ok"

@@ -8,6 +8,7 @@
   const YD = 1.09361;              // yards per meter
   // (a course.js can set tighter ones: the office test course's holes are only 40-75 yd)
   const ADVANCE_M = C.advance_m || 25; // this close to the next tee -> offer to switch to that hole
+  const ON_HOLE_M = ADVANCE_M * 1.6;   // this close to a hole's line (tee to pin) -> on that hole
   const STALE_MS = 6000;           // no fix for this long -> "GPS lost"
   const OFF_COURSE_M = 2000;
   const ARCS_YD = [100, 150, 200]; // layup arcs measured from the green center
@@ -686,6 +687,26 @@
   // within ADVANCE_M (times k) of any of the hole's tee boxes
   function nearTee(h, p, k = 1) { return h.tees.some(t => dist(t, p) < ADVANCE_M * k) || dist(h.line[0], p) < ADVANCE_M * k; }
 
+  function segDist(p, a, b) {
+    const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy;
+    const k = l2 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2)) : 0;
+    return Math.hypot(p.x - a.x - k * dx, p.y - a.y - k * dy);
+  }
+  // The hole the cart is on by GPS (null without a fresh fix or away from
+  // every hole): the nearest tee box or hole line. Holes side by side are
+  // close calls, so the hole on screen or the next one wins when nearly as near.
+  function gpsHole() {
+    if (!fix || Date.now() - fix.t > STALE_MS) return null;
+    const p = fix.p;
+    const d = holes.map(h => Math.min(dist(h.pin, p), ...h.tees.map(t => dist(t, p)),
+      ...h.line.slice(1).map((b, k) => segDist(p, h.line[k], b))));
+    let best = -1;
+    d.forEach((v, i) => { if (v < ON_HOLE_M && (best < 0 || v < d[best])) best = i; });
+    if (best < 0) return null;
+    for (const i of [idx, (idx + 1) % holes.length]) if (d[i] < d[best] + ON_HOLE_M / 3) return i;
+    return best;
+  }
+
   function onFix(lat, lon, acc, sim) {
     fix = { p: proj([lat, lon]), lat, lon, acc, t: Date.now(), sim };
     hooks.fix(fix);
@@ -899,6 +920,9 @@
   window.APP = {
     hooks, holes, YD, STALE_MS,
     hole: () => idx,
+    gpsHole,
+    atTee: i => !!(fix && Date.now() - fix.t < STALE_MS && nearTee(holes[i], fix.p, 2)),
+    toPin: () => yd(dist(origin(), holes[idx].pin)), // the big Center number
     setHole,
     fix: () => fix,
     rx: () => rx,

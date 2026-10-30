@@ -1,0 +1,14 @@
+{
+  "name": "Fairchild Wheeler Red",
+  "bbox": [
+    -73.25327,
+    41.20642,
+    -73.22997,
+    41.22363
+  ],
+  "outline": "way/38332769",
+  "share": true,
+  "hole_tags": {
+    "golf:course:name": "Red"
+  }
+}

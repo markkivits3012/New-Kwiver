@@ -124,13 +124,13 @@
     const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
     return Math.hypot(Math.max(w - lon, 0, lon - e) * kx, Math.max(s - lat, 0, lat - n) * ky);
   }
+  // the course whose holes are nearest (within HERE_M); courses side by side
+  // (Fairchild Wheeler Red and Black) overlap, and a tie keeps the current one
   function courseAt(lat, lon) {
-    const cur = courses.find(c => c.id === current);
-    if (cur && distTo(cur, lat, lon) < HERE_M) return cur; // overlapping boxes: stay put
     let best = null, bd = HERE_M;
     for (const c of courses) {
       const d = distTo(c, lat, lon);
-      if (d < bd) { best = c; bd = d; }
+      if (d < bd || (d === bd && c.id === current)) { best = c; bd = d; }
     }
     return best;
   }

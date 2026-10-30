@@ -19,7 +19,21 @@ python tools/new_course.py <id> "<course name, town state>"
 python tools/build_all.py --course <id>
 ```
 
-`<id>` is a short lowercase name, for example `whitney`. Example:
+`<id>` is a short lowercase name, for example `whitney`.
+
+**Several courses at one site** (one OSM golf course, e.g. Fairchild Wheeler's
+Red and Black): run `new_course.py` once per course with its own id, then in
+each `courses/<id>/course.json` set its `name` and pick its holes by tag:
+
+```json
+"name": "Fairchild Wheeler Red",
+"hole_tags": {"golf:course:name": "Red"}
+```
+
+Tee boxes go to the nearest hole of either course, so each course keeps only
+its own.
+
+Example:
 
 ```bash
 python tools/new_course.py whitney "Whitney Farms Golf Course, Monroe CT"

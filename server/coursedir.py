@@ -50,9 +50,11 @@ def ids():
 
 def summary(course):
     """What the course menu and course detection need: name, size and a
-    lat/lon box [south, west, north, east] around the course."""
+    lat/lon box [south, west, north, east] around the course's holes (not its
+    outline: courses at one site, like Fairchild Wheeler Red and Black, share
+    an outline but not their holes)."""
     c = load_course(course)
-    pts = c["outline"] or [p for h in c["holes"] for p in h["line"]]
+    pts = [p for h in c["holes"] for p in h["line"] + h.get("tees", [])] or c["outline"]
     lats, lons = [p[0] for p in pts], [p[1] for p in pts]
     return {"id": course, "name": c["name"], "holes": len(c["holes"]),
             "par": sum(h.get("par") or 0 for h in c["holes"]),

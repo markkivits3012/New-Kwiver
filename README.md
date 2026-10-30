@@ -237,6 +237,13 @@ halfway, green, back). If an OSM hole line stops short of its green,
 `build_course.py` extends it to the unclaimed green ahead and prints a WARNING.
 `make_package.py` ships every course marked `"share": true`.
 
+**Fairchild Wheeler Red and Black** (Fairfield, CT; built 2026-10-30): one
+OSM golf course with two 18-hole layouts, split by `hole_tags` (see
+[BUILDING.md](BUILDING.md)). Red is par 72, about 6,460 yd; Black is par 71,
+about 6,410 yd. OSM has every hole's par and stroke index, so net scores count
+handicap strokes hole by hole. Routes: Red 54 (22 flagged), Black 53 (27
+flagged), all still proposed.
+
 **Whitney Farms** (built 2026-10-29): 18 holes, par 72, about 6,180 yd on the
 hole lines. Hole 3's OSM line stopped 158 m short and was extended. The hole 15
 green sits on a peninsula between two ponds that the trolley can't reach, so

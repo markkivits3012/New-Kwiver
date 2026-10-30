@@ -630,7 +630,7 @@
     $("holeno").textContent = h.no;
     $("holepar").textContent = `PAR ${h.par ?? "?"}`;
     const yards = teeSet && teeSet.yards ? teeSet.yards[idx] : h.yards;
-    $("holeyds").textContent = `${yards} yds` + (h.hcp ? ` · HCP ${h.hcp}` : "");
+    $("holeyds").textContent = `${yards} yds` + (h.hcp ? ` · SI ${h.hcp}` : "");
     const o = origin();
     $("ycenter").textContent = yd(dist(o, h.pin));
     const d = greenDepth(o, h);

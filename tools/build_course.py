@@ -256,6 +256,7 @@ def build(cfg, track_path=None, kml_path=None):
     tees = [f["rings"][0] for f in features if f["layer"] == "tee" and f["kind"] == "poly"]
 
     warnings = []
+    others = []  # starts of the site's other courses' holes (hole_tags), so their tees aren't taken
     if kml_path:
         src = read_kml(kml_path)
     else:
@@ -264,6 +265,9 @@ def build(cfg, track_path=None, kml_path=None):
             tags = e.get("tags", {})
             if e["type"] != "way" or tags.get("golf") != "hole" or not cfg["hole_ref"](tags.get("ref", "")):
                 continue
+            if any(tags.get(k) != v for k, v in cfg.get("hole_tags", {}).items()):
+                others.append(way_pts(e)[0])
+                continue  # one of several courses in the same OSM golf course (e.g. Red/Black)
             line = way_pts(e)
             if cfg.get("inside_only") and outline and not inside(line[len(line) // 2], outline):
                 continue  # another course's hole in the same download
@@ -281,6 +285,8 @@ def build(cfg, track_path=None, kml_path=None):
     tee_owner = {}
     for i, t in enumerate(tees):
         no, d = min(((h["no"], meters(centroid(t), h["line"][0])) for h in src), key=lambda x: x[1])
+        if any(meters(centroid(t), o) < d for o in others):
+            continue  # nearer one of the other course's holes: its tee, not ours
         if d < 80:
             tee_owner[i] = no
 
@@ -372,7 +378,10 @@ def config(course_id):
     BBOX = tuple(c["bbox"])
     return {"name": c["name"], "outline": c["outline"], "inside_only": True,
             "hole_ref": lambda r: r.isdigit(), "hole_no": int,
-            "kml": c.get("kml"), "track": c.get("track")}
+            "kml": c.get("kml"), "track": c.get("track"),
+            # optional: keep only holes with these tags, for a site with several
+            # courses in one OSM golf course, e.g. {"golf:course:name": "Red"}
+            "hole_tags": c.get("hole_tags", {})}
 
 
 if __name__ == "__main__":

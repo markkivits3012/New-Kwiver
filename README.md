@@ -80,7 +80,9 @@ app falls back to drawn shapes.
 - **Settings:** GPS details (fix, satellites, accuracy, position), the handheld
   remote (not built yet) and the trolley link. **Touch calibration** is here too.
   **My Bag:** tap each club you carry and enter its carry yards (**Not in bag**
-  removes it). Saved in `/var/lib/golf-map/bag.json`.
+  removes it). **+ Custom** adds a club of your own (up to 10, such as "52°" or
+  "Chipper"): type its name on the on-screen keyboard, then its yards. Saved in
+  `/var/lib/golf-map/bag.json`.
 - **3D button:** a live 3D view from behind and above the cart (or the tee),
   looking down the hole, with yards to the pin and each aim target. It follows
   the GPS. Tap the view or press **2D** to go back.

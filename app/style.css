@@ -198,13 +198,15 @@ svg { display: block; }
 .sdot { width: 12px; height: 12px; border-radius: 50%; background: #7f8c8d; flex: none; }
 .sdot.ok { background: #46d17d; box-shadow: 0 0 0 3px rgba(70, 209, 125, .22); }
 .sdot.weak { background: #f1c40f; box-shadow: 0 0 0 3px rgba(241, 196, 15, .22); }
-.clubgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-.club { height: 78px; border-radius: 14px; background: var(--card); border: 1px dashed var(--line);
+.clubgrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
+.club { height: 62px; border-radius: 14px; background: var(--card); border: 1px dashed var(--line);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 .club:active { background: #24402f; }
 .club.on { border: 1px solid var(--accent); box-shadow: inset 0 -4px 0 var(--accent); }
-.clubname { font-size: 18px; font-weight: 800; }
-.clubyd { font-size: 14px; color: var(--muted); }
+.clubname { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding: 0 4px; }
+.clubyd { font-size: 13px; color: var(--muted); }
+.club.add { border-style: solid; background: rgba(255, 183, 92, .1); border-color: rgba(255, 183, 92, .5); }
+.club.add .clubname { color: #ffb75c; }
 .club.on .clubyd { color: var(--text); font-weight: 700; }
 .sdot.bad { background: var(--red); box-shadow: 0 0 0 3px rgba(255, 77, 77, .2); }
 
@@ -218,6 +220,12 @@ svg { display: block; }
 .padval { font-size: 40px; font-weight: 800; text-align: center; padding: 2px; border-radius: 12px; background: var(--bg); }
 .pad { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .pad .tbtn { height: 52px; font-size: 22px; }
+.kbd { display: flex; flex-direction: column; gap: 5px; }
+.kbdrow { display: flex; gap: 5px; justify-content: center; }
+.kbdrow .tbtn { flex: 0 0 48px; height: 46px; font-size: 19px; }
+.kbdrow .tbtn.space { flex: 0 0 300px; font-size: 15px; }
+.namebuf { font-size: 30px; min-height: 46px; }
+#modalbox.kbdbox { width: 600px; padding: 14px 20px; gap: 8px; }
 .banner { position: absolute; left: 10px; right: 172px; top: 10px; /* leaves Flyover visible */ z-index: 7; display: flex; align-items: center; gap: 8px;
   padding: 8px 8px 8px 16px; border-radius: 16px; background: rgba(10, 18, 14, .92); border: 1px solid var(--accent);
   font-size: 16px; font-weight: 700; }

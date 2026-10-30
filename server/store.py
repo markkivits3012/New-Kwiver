@@ -20,7 +20,7 @@ ID = re.compile(r"[a-z0-9_-]{1,40}")
 MAX_HOLES = 36
 HCP_RANGE = (-10.0, 54.0)  # WHS handicap index limits (plus 10 to 54)
 MAX_ROUNDS = 500           # history sent to the screen, newest first
-MAX_CLUBS = 20
+MAX_CLUBS = 30            # 19 standard clubs on the screen plus up to 10 of the golfer's own
 
 
 class Store:

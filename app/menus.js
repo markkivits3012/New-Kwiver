@@ -18,6 +18,8 @@
                  "3 iron", "4 iron", "5 iron", "6 iron", "7 iron", "8 iron", "9 iron", "PW", "GW", "SW", "LW"];
   const CLUB_MIN_YD = 20;      // nearer the pin than this: no club suggested (putting)
   const CLUB_SLACK_YD = 3;     // a club this much short of the distance still counts as reaching
+  const MAX_CUSTOM = 10;       // own clubs ("52°", "Chipper") on top of CLUBS; the grid fits 30 tiles
+  const NAME_LEN = 12;
 
   // ---- state ---------------------------------------------------------------------
   let courses = [];            // /api/courses: [{id, name, holes, par, bbox}]
@@ -399,13 +401,49 @@
   }
 
   // ---- my bag and the club suggestion ---------------------------------------------------
+  // the golfer's own clubs: any in the bag that aren't in CLUBS, longest first
+  const customClubs = () => Object.keys(bag.clubs).filter(c => !CLUBS.includes(c))
+    .sort((a, b) => bag.clubs[b] - bag.clubs[a]);
   function bagHtml() {
-    const tiles = CLUBS.map(c => {
+    const custom = customClubs();
+    const tiles = CLUBS.concat(custom).map(c => {
       const y = bag.clubs[c];
       return `<button class="club${y ? " on" : ""}" data-act="club" data-arg="${esc(c)}">
         <span class="clubname">${esc(c)}</span><span class="clubyd">${y ? `${y} yds` : "+ Add"}</span></button>`;
     }).join("");
-    return `<div class="clubgrid">${tiles}</div>`;
+    const add = custom.length < MAX_CUSTOM
+      ? `<button class="club add" data-act="custom"><span class="clubname">+ Custom</span><span class="clubyd">Name your own</span></button>` : "";
+    return `<div class="clubgrid">${tiles}${add}</div>`;
+  }
+
+  // on-screen keyboard for a custom club's name (the kiosk has no keyboard).
+  // Each word starts with a capital; Shift makes the next letter a capital too.
+  let nameBuf = "", nameShift = false;
+  function nameKeyboard() {
+    const rows = ["1234567890", "QWERTYUIOP", "ASDFGHJKL°", "ZXCVBNM-"];
+    const keyBtn = k => `<button class="tbtn" data-act="nkey" data-arg="${esc(k)}">${esc(k)}</button>`;
+    modal(`<h2>Custom club name</h2>
+      <div class="padval namebuf">${esc(nameBuf) || "&nbsp;"}</div>
+      <div class="kbd">${rows.map((r, i) => `<div class="kbdrow">${i === 3 ? `<button class="tbtn${nameShift ? " on" : ""}" data-act="nshift">⇧</button>` : ""}${[...r].map(keyBtn).join("")}${i === 3 ? `<button class="tbtn" data-act="nkey" data-arg="⌫">⌫</button>` : ""}</div>`).join("")}
+        <div class="kbdrow"><button class="tbtn space" data-act="nkey" data-arg=" ">Space</button></div></div>
+      <div class="mrow"><button class="tbtn" data-act="close">Cancel</button>
+        <button class="tbtn go" data-act="nnext"${nameBuf.trim() ? "" : " disabled"}>Next: yards</button></div>`, true);
+    $("modalbox").classList.add("kbdbox");
+  }
+  function nameKey(k) {
+    if (k === "⌫") nameBuf = nameBuf.slice(0, -1);
+    else if (nameBuf.length < NAME_LEN && !(k === " " && (!nameBuf || nameBuf.endsWith(" ")))) {
+      const wordStart = !nameBuf || nameBuf.endsWith(" ");
+      nameBuf += wordStart || nameShift ? k : k.toLowerCase();
+      nameShift = false;
+    }
+    nameKeyboard();
+  }
+  function nameDone() {
+    const name = nameBuf.trim();
+    const taken = CLUBS.concat(Object.keys(bag.clubs)).find(c => c.toLowerCase() === name.toLowerCase());
+    if (taken) return toast(`${taken} is already in the list: tap it to set its yards.`);
+    clubPad(name);
   }
   function saveBag(clubs) {
     api("/api/bag", { clubs }).then(b => { bag = b; closeModal(); draw(); suggestClub(); }, e => toast(String(e)));
@@ -524,6 +562,10 @@
       case "hist": histSel = +arg; return draw();
       case "histpage": histPage = +arg; histSel = histPage * HIST_PAGE; return draw();
       case "club": return clubPad(arg);
+      case "custom": nameBuf = ""; nameShift = false; return nameKeyboard();
+      case "nkey": return nameKey(arg);
+      case "nshift": nameShift = !nameShift; return nameKeyboard();
+      case "nnext": return nameDone();
       case "club-remove": { const c = { ...bag.clubs }; delete c[padClub]; return saveBag(c); }
       case "club-save": {
         const y = parseInt(pad, 10);

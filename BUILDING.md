@@ -66,7 +66,30 @@ sudo reboot
 
 Run it the same way to update. It's safe to run again.
 
+### Updating by USB stick (no internet needed)
+
+On the PC, commit your changes, then pack them onto the stick:
+
+```bash
+python tools/make_update.py D:```
+
+On the Pi (the stick shows up under `/media/fampi/`):
+
+```bash
+cd ~ && tar xzf /media/fampi/<stick>/golfmap-update.tgz
+sudo bash tashua-golf-map/pi/update.sh
+sudo reboot
+```
+
+`update.sh` backs up the running install to `~/golfmap-backups/` first and
+prints the command to undo it. Unlike `install.sh` it installs no packages, so
+it works without internet; use `install.sh` for a new Pi.
+
 ## 4. Pick the course (Pi)
+
+On the screen: **Menu**, then tap the course. The app also offers to switch
+when the GPS shows the cart at another installed course. Or from a terminal
+(this also clears the course picked on the screen):
 
 ```bash
 sudo bash pi/set-course.sh whitney
@@ -74,6 +97,32 @@ sudo reboot
 ```
 
 Use `tashua` to go back. Run it with no name to list the installed courses.
+
+## Scorecard: tees, yards, slope/rating, stroke index (optional)
+
+Without one, the **Menu** offers Back/Middle/Forward tees estimated from the
+mapped tee boxes, and the score shows net only for a full round. With the
+course's real scorecard it shows the exact yards per tee and handicap strokes
+hole by hole. Put it in `app/scorecard.json` (Tashua) or
+`courses/<id>/app/scorecard.json`:
+
+```json
+{
+  "tees": [
+    {"name": "Blue",  "color": "#2f6fe0", "rating": 71.2, "slope": 128, "yards": [552, 365, 154, ...]},
+    {"name": "White", "color": "#ffffff", "rating": 69.4, "slope": 124, "yards": [530, 350, 140, ...]}
+  ],
+  "hcp": [7, 15, 3, ...],
+  "par": [5, 4, 3, ...]
+}
+```
+
+- `tees` run back to front. Each `yards` list has one number per hole.
+  `rating`, `slope` and `color` are optional.
+- `hcp` is each hole's stroke index (1 = hardest). `par` is optional and
+  overrides the mapped par.
+- Back-to-front order also picks which mapped tee box the app measures from
+  when there's no GPS fix.
 
 ## 5. Fix touch (Pi)
 

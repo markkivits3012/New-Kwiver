@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "golf-map-sim",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["server/gps_server.py", "--sim", "--sim-rate", "0.25", "--mock-trolley", "--trolley-speedup", "4"],
+      "port": 8080
+    }
+  ]
+}

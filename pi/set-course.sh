@@ -17,6 +17,7 @@ if [ "$C" != tashua ] && [ ! -f "$DEST/courses/$C/app/course.js" ]; then
   exit 1
 fi
 
+rm -f /var/lib/golf-map/course.txt   # a course picked on the screen would win over this one
 mkdir -p "$(dirname "$DROPIN")"
 printf '[Service]\nEnvironment=GOLF_COURSE=%s\n' "$C" > "$DROPIN"
 systemctl daemon-reload

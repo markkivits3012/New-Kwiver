@@ -61,6 +61,16 @@ app falls back to drawn shapes.
   [FLYOVERS.md](FLYOVERS.md)). Otherwise it flies the KML tour in **3D** over our
   own terrain, or as a 2D pan over the map if the screen can't do 3D.
   Tuning is at the top of `app/app.js` (`TOUR_SPEED`, `VIDEO_RATE`, `AUTO_FLYOVER`).
+- **Menu:** pick the course (it shows how far away each one is) and the tees.
+  When the GPS shows the cart at another installed course, a banner offers to
+  switch. Switching restarts the map server on that course and reloads the screen.
+- **Score:** set your handicap index (HCP), then tap − / + / Par for each hole;
+  tap a hole on the card to change it. It shows gross, to par and net (with a
+  course's `scorecard.json`, net counts handicap strokes hole by hole; see
+  [BUILDING.md](BUILDING.md)). **Finish round** keeps it in the round history.
+  Scores are saved on the Pi as you go, so a power cut doesn't lose them.
+- **Settings:** GPS details (fix, satellites, accuracy, position), the handheld
+  remote (not built yet) and the trolley link. **Touch calibration** is here too.
 - **3D button:** a live 3D view from behind and above the cart (or the tee),
   looking down the hole, with yards to the pin and each aim target. It follows
   the GPS. Tap the view or press **2D** to go back.
@@ -167,6 +177,8 @@ python server/gps_server.py --sim --review       # then open http://127.0.0.1:80
 | `app/touchtest.html`, `pi/set-touch.sh` | Touch calibration page and the script that applies it |
 | `pi/set-course.sh` | Picks the course the Pi shows |
 | `tools/make_test_course.py` | Builds a made-up test course from `courses/<id>/course-def.json` |
+| `app/menus.js`, `server/store.py` | Menu, Score and Settings screens; saved course, handicap, tees and rounds (`/var/lib/golf-map/` on the Pi) |
+| `pi/update.sh`, `tools/make_update.py` | Update the Pi from a USB stick, no internet needed |
 | `server/coursedir.py` | Where each course's files live (`--course`; Tashua is the default) |
 | `app/view3d.js`, `app/terrain3d/` | 3D view (WebGL) and its lidar heightmaps |
 | `tools/fetch_elevation.py` | Downloads the heightmaps for the 3D view |

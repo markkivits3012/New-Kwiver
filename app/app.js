@@ -69,8 +69,32 @@
     const tees = h.tees.length ? h.tees.map(proj) : [line[0]];
     const pin = h.pin ? proj(h.pin) : green ? centroid(green) : line[line.length - 1];
     const tour = (h.tour || []).map(t => ({ ...t, cam: lookAtCam(t) }));
-    return { ...h, line, green, tees, pin, targets: (h.targets || []).map(proj), tour };
+    return { ...h, line, green, tees, pin, targets: (h.targets || []).map(proj), tour,
+             teesBack: tees.slice().sort((a, b) => dist(b, pin) - dist(a, pin)) }; // farthest first
   });
+
+  // ---- tees ------------------------------------------------------------------
+  // The map has each hole's tee boxes (from OSM) but not which set they belong
+  // to. A tee set picks the box at its place in back-to-front order: frac 0 is
+  // the farthest back, 1 the farthest forward. Yards come from the course's
+  // scorecard.json when there is one (menus.js), else from the map.
+  let teeSet = null;     // {name, frac, yards: [per hole] or null}
+  function teePoint(h, frac = teeSet ? teeSet.frac : null) {
+    if (frac == null) return h.line[0];
+    return h.teesBack[Math.round(frac * (h.teesBack.length - 1))];
+  }
+  // hole length from a tee box: the mapped yards, adjusted by how much
+  // nearer to or farther from the pin this box is than the hole line's start
+  // (straight-line, so boxes off to the side of a dogleg still sort back to front)
+  const teeYards = (h, frac) => Math.round(h.yards + (dist(teePoint(h, frac), h.pin) - dist(h.line[0], h.pin)) * YD);
+  function mapTeeSets() {
+    const n = Math.min(3, Math.max(...holes.map(h => h.teesBack.length)));
+    const names = [["Tee"], ["Back", "Forward"], ["Back", "Middle", "Forward"]][n - 1];
+    return names.map((name, k) => {
+      const frac = n === 1 ? 0 : k / (n - 1);
+      return { name, frac, yards: holes.map(h => teeYards(h, frac)), est: true };
+    });
+  }
 
   // ---- state -----------------------------------------------------------------
   let idx = 0;
@@ -428,7 +452,7 @@
   function origin() {
     // Measure from the cart when we have a fix on the course, else from the tee.
     if (fix && Date.now() - fix.t < STALE_MS && dist(fix.p, courseCenter) < OFF_COURSE_M) return fix.p;
-    return holes[idx].line[0];
+    return teePoint(holes[idx]);
   }
 
   const yd = m => Math.round(m * YD);
@@ -605,7 +629,8 @@
     const h = holes[idx];
     $("holeno").textContent = h.no;
     $("holepar").textContent = `PAR ${h.par ?? "?"}`;
-    $("holeyds").textContent = `${h.yards} yds` + (h.hcp ? ` · HCP ${h.hcp}` : "");
+    const yards = teeSet && teeSet.yards ? teeSet.yards[idx] : h.yards;
+    $("holeyds").textContent = `${yards} yds` + (h.hcp ? ` · HCP ${h.hcp}` : "");
     const o = origin();
     $("ycenter").textContent = yd(dist(o, h.pin));
     const d = greenDepth(o, h);
@@ -639,7 +664,7 @@
     }
   }
 
-  function render() { updatePanel(); updateTrolleyBar(); draw(); }
+  function render() { updatePanel(); updateTrolleyBar(); draw(); hooks.render(); }
 
   function setHole(i) {
     idx = (i + holes.length) % holes.length;
@@ -657,7 +682,8 @@
   function nearTee(h, p) { return h.tees.some(t => dist(t, p) < ADVANCE_M) || dist(h.line[0], p) < ADVANCE_M; }
 
   function onFix(lat, lon, acc, sim) {
-    fix = { p: proj([lat, lon]), acc, t: Date.now(), sim };
+    fix = { p: proj([lat, lon]), lat, lon, acc, t: Date.now(), sim };
+    hooks.fix(fix);
     if (!gotFirstFix) {
       // first fix: jump to whichever hole's tee we're standing on, if any
       gotFirstFix = true;
@@ -848,6 +874,20 @@
   window.addEventListener("resize", resize);
   setInterval(updatePanel, 2000); // flips status to "GPS lost" when fixes stop
   document.addEventListener("contextmenu", e => e.preventDefault());
+
+  // What menus.js (Menu, Score, Settings) reads and calls. It sets the hooks.
+  const hooks = { render() {}, fix() {} };
+  window.APP = {
+    hooks, holes, YD, STALE_MS,
+    hole: () => idx,
+    setHole,
+    fix: () => fix,
+    rx: () => rx,
+    trolley: () => (trolley && Date.now() - trolleyAt < TROLLEY_STALE_MS ? trolley : trolley && { lost: true }),
+    mapTeeSets,
+    stopTrolley: () => stopTrolley(),
+    setTees(t) { teeSet = t; render(); },
+  };
 
   canvas.width = map3d.width = ui3d.width = canvas.clientWidth || 550;
   canvas.height = map3d.height = ui3d.height = canvas.clientHeight || 480;

@@ -16,6 +16,12 @@
     <canvas id="map3d" hidden></canvas>
     <canvas id="map3dui" hidden></canvas>
     <div id="tapinfo" hidden></div>
+    <!-- GPS says we're at another installed course (menus.js) -->
+    <div id="coursebanner" hidden>
+      <span id="coursebannertext"></span>
+      <button id="coursebannergo" class="tbtn go" data-act="coursebannergo">Switch</button>
+      <button id="coursebannerno" class="tbtn" data-act="coursebannerno">Not now</button>
+    </div>
     <button id="flyover" class="mapbtn">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10-6.5z"/></svg>
       <span id="flyoverlabel">Flyover</span>
@@ -60,11 +66,37 @@
       <div class="yrow center"><span class="ylabel">Center</span><span id="ycenter" class="yval">--</span></div>
       <div class="yrow"><span class="ylabel">Front</span><span id="yfront" class="yval small">--</span></div>
     </div>
+    <div id="toolbar">
+      <button id="btnmenu" class="toolbtn" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <span>Menu</span>
+      </button>
+      <button id="btnscore" class="toolbtn" aria-label="Score">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+        <span id="btnscorelabel">Score</span>
+      </button>
+      <button id="btnsettings" class="toolbtn" aria-label="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>
+        <span>Settings</span>
+      </button>
+    </div>
     <div id="status">
       <span id="gpsdot"></span><span id="gpstext">Waiting for GPS…</span>
     </div>
     <div id="credits">Map data © OpenStreetMap contributors<br>Imagery: USDA NAIP · Terrain: USGS</div>
   </aside>
+  <!-- Menu / Score / Settings screens (menus.js), over everything but STOP -->
+  <section id="sheet" hidden>
+    <header id="sheethead">
+      <h1 id="sheettitle"></h1>
+      <div id="sheettools"></div>
+      <button id="sheetclose" class="nav" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+    <div id="sheetbody"></div>
+  </section>
+  <div id="modal" hidden><div id="modalbox"></div></div>
 </div>
 <script src="course.js"></script>
 <script src="aerial/aerial.js" onerror="window.AERIAL = null"></script>
@@ -72,5 +104,6 @@
 <script src="terrain3d/terrain3d.js" onerror="window.TERRAIN3D = null"></script>
 <script src="view3d.js"></script>
 <script src="app.js"></script>
+<script src="menus.js"></script>
 </body>
 </html>

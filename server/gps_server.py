@@ -24,6 +24,14 @@ Trolley API (only when a trolley is configured; see trolley.py):
     GET  /api/trolley            status as Server-Sent Events
     POST /api/trolley/cmd        {"cmd": "stop"} or {"cmd": "goto", "target": ...}
     POST /api/trolley/heartbeat  the screen is alive; the trolley stops without it
+Course, player and scorecard API (saved under --log-dir; see store.py):
+    GET  /api/courses            installed courses, which one is showing
+    POST /api/course             {"id"}: show that course (saves it, restarts the server)
+    GET  /api/player             {"hcp", "tees": {course: tee}}
+    POST /api/player             change either
+    GET  /api/round              the round in progress, or {}
+    POST /api/round              {"course", "tee", "hcp", "scores": [...]}
+    POST /api/round/finish       {"save": true} keeps it in rounds.jsonl
 Route review API (only with --review, on a PC):
     GET  /api/routes             the library (server/routes.json)
     POST /api/routes/review      {"id", "status", "by", "note"}
@@ -43,6 +51,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import coursedir  # noqa: E402
+from store import Store  # noqa: E402
 
 APP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "app")
 MAX_BODY = 4096
@@ -52,6 +61,7 @@ _lock = threading.Lock()
 _trolley = {"gate": None}
 _review = {"lib": None}
 _course = {"id": coursedir.DEFAULT}
+_state = {"store": None, "courses": []}  # Store, and coursedir.summary() of each installed course
 
 
 def load_course():
@@ -132,11 +142,11 @@ def gpsd_reader(host, port):
         time.sleep(3)  # gpsd not up yet, or dropped; retry
 
 
-def sim_reader(rate):
+def sim_reader(rate, sim_course=None):
     """Replay the recorded cart route (or walk each hole's tee-to-green line
     if there is none), for bench testing. rate = seconds per step."""
     _set_rx(sim=True)
-    course = load_course()
+    course = coursedir.load_course(sim_course or _course["id"])
     if course.get("track"):
         legs, steps = [course["track"]], 2
     else:
@@ -232,6 +242,12 @@ class Handler(SimpleHTTPRequestHandler):
             if not gate:
                 return self.send_error(404, "No trolley configured")
             return self._stream(gate.status, every_tick=True)
+        if route == "/api/courses":
+            return self._json(200, {"current": _course["id"], "courses": _state["courses"]})
+        if route == "/api/player":
+            return self._json(200, _state["store"].player())
+        if route == "/api/round":
+            return self._json(200, _state["store"].round() or {})
         if route == "/api/routes":
             if not _review["lib"]:
                 return self.send_error(404, "Start the server with --review")
@@ -262,7 +278,8 @@ class Handler(SimpleHTTPRequestHandler):
         route = self.path.split("?")[0]
         gate, lib = _trolley["gate"], _review["lib"]
         if not ((route in ("/api/trolley/cmd", "/api/trolley/heartbeat") and gate)
-                or (route in ("/api/routes/review", "/api/routes/export") and lib)):
+                or (route in ("/api/routes/review", "/api/routes/export") and lib)
+                or route in ("/api/course", "/api/player", "/api/round", "/api/round/finish")):
             return self.send_error(404)
         # Custom header + JSON type: a cross-site form or fetch can't send these
         # without a CORS preflight, which this server never approves.
@@ -281,7 +298,16 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ValueError
         except ValueError:
             return self.send_error(400)
-        if route == "/api/trolley/heartbeat":
+        store = _state["store"]
+        if route == "/api/course":
+            ok, msg = switch_course(body.get("id"))
+        elif route == "/api/player":
+            ok, msg = store.save_player(body)
+        elif route == "/api/round":
+            ok, msg = store.save_round(body)
+        elif route == "/api/round/finish":
+            ok, msg = store.finish_round(body.get("save", True) is not False)
+        elif route == "/api/trolley/heartbeat":
             gate.heartbeat()
             ok, msg = True, "ok"
         elif route == "/api/routes/review":
@@ -304,6 +330,27 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
 
+def switch_course(cid):
+    """Save the course picked on the screen and restart the server on it. The
+    course decides the map files, the sim route and the trolley's keep-out map,
+    so a fresh start is simpler and safer than swapping them under a live trolley."""
+    if cid not in [c["id"] for c in _state["courses"]]:
+        return False, "No such course."
+    if cid == _course["id"]:
+        return True, "Already showing it."
+    _state["store"].save_course(cid)
+
+    def restart():
+        time.sleep(0.5)  # let the reply go out first
+        gate = _trolley["gate"]
+        if gate:
+            gate.t.stop("course changed")
+        argv = getattr(sys, "orig_argv", None) or [sys.executable] + sys.argv
+        os.execv(sys.executable, [sys.executable] + argv[1:])
+    threading.Thread(target=restart, daemon=True).start()
+    return True, "Switching course."
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bind", default="127.0.0.1")
@@ -312,6 +359,7 @@ def main():
     ap.add_argument("--gpsd-port", type=int, default=2947)
     ap.add_argument("--sim", action="store_true", help="simulate a cart instead of reading gpsd")
     ap.add_argument("--sim-rate", type=float, default=1.0, help="seconds per sim step (smaller = faster)")
+    ap.add_argument("--sim-course", help="sim: drive another course's route (to test course detection)")
     ap.add_argument("--mock-trolley", action="store_true", help="add a pretend self-driving trolley")
     ap.add_argument("--trolley-speedup", type=float, default=1.0, help="mock trolley speed x walking pace")
     ap.add_argument("--library-only", action="store_true",
@@ -322,11 +370,16 @@ def main():
                     help="where the trolley command audit log goes")
     coursedir.add_arg(ap)
     args = ap.parse_args()
+    _state["store"] = Store(args.log_dir)
+    _state["courses"] = [coursedir.summary(c) for c in coursedir.ids()]
+    saved = _state["store"].saved_course()  # picked on the screen; beats --course
+    if saved and saved in [c["id"] for c in _state["courses"]]:
+        args.course = saved
     if not os.path.isfile(coursedir.path(args.course, "app", "course.js")):
         ap.error(f"no course.js for course {args.course!r} in {coursedir.base(args.course)}")
     _course["id"] = args.course
 
-    target = (lambda: sim_reader(args.sim_rate)) if args.sim else (lambda: gpsd_reader(args.gpsd_host, args.gpsd_port))
+    target = (lambda: sim_reader(args.sim_rate, args.sim_course)) if args.sim else (lambda: gpsd_reader(args.gpsd_host, args.gpsd_port))
     threading.Thread(target=target, daemon=True).start()
 
     if args.mock_trolley or args.review:
@@ -349,7 +402,15 @@ def main():
     print(f"Serving {os.path.abspath(APP_DIR)} [{load_course()['name']}] on http://{args.bind}:{args.port}"
           f" ({'SIM' if args.sim else 'gpsd'}{', mock trolley' if args.mock_trolley else ''}"
           f"{', route review' if args.review else ''})")
-    ThreadingHTTPServer((args.bind, args.port), Handler).serve_forever()
+    for attempt in range(20):  # after a course switch the old process may still hold the port
+        try:
+            server = ThreadingHTTPServer((args.bind, args.port), Handler)
+            break
+        except OSError:
+            if attempt == 19:
+                raise
+            time.sleep(0.5)
+    server.serve_forever()
 
 
 if __name__ == "__main__":

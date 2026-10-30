@@ -628,9 +628,12 @@
   function updatePanel() {
     const h = holes[idx];
     $("holeno").textContent = h.no;
-    $("holepar").textContent = `PAR ${h.par ?? "?"}`;
+    // a scorecard tee set can have its own par and stroke index per hole
+    const par = (teeSet && teeSet.par && teeSet.par[idx]) || h.par;
+    const si = (teeSet && teeSet.hcp && teeSet.hcp[idx]) || h.hcp;
+    $("holepar").textContent = `PAR ${par ?? "?"}`;
     const yards = teeSet && teeSet.yards ? teeSet.yards[idx] : h.yards;
-    $("holeyds").textContent = `${yards} yds` + (h.hcp ? ` · SI ${h.hcp}` : "");
+    $("holeyds").textContent = `${yards} yds` + (si ? ` · SI ${si}` : "");
     const o = origin();
     $("ycenter").textContent = yd(dist(o, h.pin));
     const d = greenDepth(o, h);

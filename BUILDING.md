@@ -135,8 +135,16 @@ hole by hole. Put it in `app/scorecard.json` (Tashua) or
   `rating`, `slope` and `color` are optional.
 - `hcp` is each hole's stroke index (1 = hardest). `par` is optional and
   overrides the mapped par.
-- Back-to-front order also picks which mapped tee box the app measures from
-  when there's no GPS fix.
+- A tee can carry its own `par` and `hcp` lists when they differ by tee (on
+  many cards the forward tees play to a different par and stroke index). They
+  win over the course-wide ones.
+- `default_tee` (optional) names the tee picked until the golfer chooses one;
+  otherwise the middle one.
+- The tees' total yards pick which mapped tee box the app measures from when
+  there's no GPS fix (longest = farthest back; equal lengths share a box).
+
+Example with per-tee par and stroke index:
+`courses/fairchild-black/app/scorecard.json`.
 
 ## 5. Fix touch (Pi)
 

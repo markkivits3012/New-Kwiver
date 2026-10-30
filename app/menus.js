@@ -36,8 +36,14 @@
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
   // ---- course data: par, stroke index, handicap ---------------------------------------
-  const par = i => (card && card.par && card.par[i]) || A.holes[i].par;
-  const strokeIndex = i => (card && card.hcp && card.hcp[i]) || A.holes[i].hcp || null;
+  // par and stroke index can differ by tee (scorecard.json: per tee, then for
+  // the whole course, then the map)
+  const fromCard = (key, i) => {
+    const t = teeSets[tee];
+    return (t && t[key] && t[key][i]) || (card && Array.isArray(card[key]) && card[key][i]) || null;
+  };
+  const par = i => fromCard("par", i) || A.holes[i].par;
+  const strokeIndex = i => fromCard("hcp", i) || A.holes[i].hcp || null;
   const parTotal = () => A.holes.reduce((s, h, i) => s + (par(i) || 0), 0);
   const fmtHcp = h => (h == null ? "None" : h < 0 ? `+${(-h).toFixed(1)}` : h.toFixed(1));
   const fmtPar = d => (d === 0 ? "E" : d > 0 ? `+${d}` : `${d}`);
@@ -76,11 +82,20 @@
   // ---- tees ------------------------------------------------------------------------
   function teeSetsFor(c) {
     if (!c || !Array.isArray(c.tees) || !c.tees.length) return A.mapTeeSets();
-    return c.tees.map((t, k, all) => ({
+    const holes = a => (Array.isArray(a) && a.length === N ? a : null);
+    const sets = c.tees.map((t, k, all) => ({
       name: String(t.name), color: t.color, rating: t.rating, slope: t.slope,
-      yards: Array.isArray(t.yards) && t.yards.length === N ? t.yards : null,
-      frac: all.length === 1 ? 0 : k / (all.length - 1), // which mapped box to measure from
+      yards: holes(t.yards), par: holes(t.par), hcp: holes(t.hcp),
+      frac: all.length === 1 ? 0 : k / (all.length - 1),
     }));
+    // which mapped tee box to measure from: by length when every set has yards
+    // (two sets of the same length share a box), else by order back to front
+    const len = sets.map(teeTotal);
+    if (len.every(Boolean) && Math.max(...len) > Math.min(...len)) {
+      const hi = Math.max(...len), lo = Math.min(...len);
+      sets.forEach((s, k) => { s.frac = (hi - len[k]) / (hi - lo); });
+    }
+    return sets;
   }
   function applyTee() { A.setTees(teeSets[tee]); }
   function chooseTee(k) {
@@ -432,7 +447,8 @@
     card = sc;
     teeSets = teeSetsFor(card);
     const saved = teeSets.findIndex(t => t.name === (player.tees || {})[current]);
-    tee = saved >= 0 ? saved : Math.floor((teeSets.length - 1) / 2); // middle tees unless picked
+    const preset = teeSets.findIndex(t => card && t.name === card.default_tee);
+    tee = saved >= 0 ? saved : preset >= 0 ? preset : Math.floor((teeSets.length - 1) / 2); // middle unless set
     applyTee();
     if (r && r.scores) {
       // a round from another course (or an older layout) can't go on here: keep it in history

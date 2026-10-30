@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Tashua Knolls GPS</title>
+<link rel="preload" href="fonts/inter-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="screen">
+  <div id="mapwrap">
+    <canvas id="map"></canvas>
+    <video id="video" muted playsinline preload="auto" hidden></video>
+    <!-- 3D view (view3d.js): WebGL ground + photo, with a 2D layer for markers on top -->
+    <canvas id="map3d" hidden></canvas>
+    <canvas id="map3dui" hidden></canvas>
+    <div id="tapinfo" hidden></div>
+    <button id="flyover" class="mapbtn">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10-6.5z"/></svg>
+      <span id="flyoverlabel">Flyover</span>
+    </button>
+    <button id="view3d" class="mapbtn" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 18l6-9 4 5 3-4 5 8z"/></svg>
+      <span id="view3dlabel">3D</span>
+    </button>
+    <!-- self-driving trolley controls; shown only when the server has a trolley -->
+    <div id="trolleybar" hidden>
+      <div id="trolleystate"><span id="tdot"></span><span id="ttext">Trolley</span></div>
+      <div id="confirm" hidden>
+        <span id="confirmtext"></span>
+        <button id="confirmyes" class="tbtn go">Send</button>
+        <button id="confirmno" class="tbtn">Cancel</button>
+      </div>
+      <div id="tbtns">
+        <button id="tstop" class="tbtn stop">STOP</button>
+        <button class="tbtn" data-target="next_tee">Next tee</button>
+        <button class="tbtn" data-target="green_side">Green side</button>
+        <button class="tbtn" data-target="golfer">Come to me</button>
+        <button class="tbtn" data-target="point" id="tpoint" hidden>To marker</button>
+      </div>
+    </div>
+  </div>
+  <aside id="panel">
+    <div id="holehead">
+      <button id="prev" class="nav" aria-label="Previous hole">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div id="holeid">
+        <div class="eyebrow">HOLE</div>
+        <div id="holeno">1</div>
+        <div id="holemeta"><span id="holepar" class="chip">PAR 4</span><span id="holeyds">380 yds</span></div>
+      </div>
+      <button id="next" class="nav" aria-label="Next hole">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+    <div id="yardages">
+      <div class="yrow"><span class="ylabel">Back</span><span id="yback" class="yval small">--</span></div>
+      <div class="yrow center"><span class="ylabel">Center</span><span id="ycenter" class="yval">--</span></div>
+      <div class="yrow"><span class="ylabel">Front</span><span id="yfront" class="yval small">--</span></div>
+    </div>
+    <div id="status">
+      <span id="gpsdot"></span><span id="gpstext">Waiting for GPS…</span>
+    </div>
+    <div id="credits">Map data © OpenStreetMap contributors<br>Imagery: USDA NAIP · Terrain: USGS</div>
+  </aside>
+</div>
+<script src="course.js"></script>
+<script src="aerial/aerial.js" onerror="window.AERIAL = null"></script>
+<script src="flyovers/flyovers.js" onerror="window.FLYOVERS = []"></script>
+<script src="terrain3d/terrain3d.js" onerror="window.TERRAIN3D = null"></script>
+<script src="view3d.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

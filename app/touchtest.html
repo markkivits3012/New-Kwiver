@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Touch test</title>
+<!-- Touch calibration: tap the 5 crosshairs; the page fits where the taps landed
+     to where they should have, and prints the command that fixes it
+     (pi/set-touch.sh, a libinput calibration matrix). Open it by holding the
+     GPS status line on the map for 3 s, or at http://127.0.0.1:8080/touchtest.html. -->
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #0a120e; color: #f4f7f2;
+    font: 500 15px "DejaVu Sans", Arial, sans-serif; user-select: none; touch-action: none; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+  #msg { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 470px; max-width: 92vw;
+    text-align: center; line-height: 1.4; pointer-events: none; }
+  #msg b { color: #8be06b; }
+  #cmd { margin-top: 10px; padding: 10px; border-radius: 10px; background: #172a1f; font: 700 14px monospace;
+    color: #ffd54a; word-break: break-all; user-select: text; }
+  .bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 10px; }
+  button { height: 56px; padding: 0 22px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12);
+    background: #172a1f; color: inherit; font: 700 16px inherit; touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="msg"></div>
+<div class="bar"><button id="again">Start over</button><button id="back">Back to map</button></div>
+<script>
+(function () {
+  "use strict";
+  const c = document.getElementById("c"), ctx = c.getContext("2d"), msg = document.getElementById("msg");
+  // where the crosshairs go, as a fraction of the screen (corners inset, plus the center)
+  const TARGETS = [[0.1, 0.12], [0.9, 0.12], [0.9, 0.7], [0.1, 0.7], [0.5, 0.4]];
+  let taps, fit, checks;
+
+  function reset() {
+    taps = []; fit = null; checks = [];
+    draw();
+  }
+
+  function draw() {
+    c.width = innerWidth; c.height = innerHeight;
+    const W = c.width, H = c.height;
+    ctx.clearRect(0, 0, W, H);
+    if (!fit) {
+      const i = taps.length, [tx, ty] = TARGETS[i];
+      cross(tx * W, ty * H, "#ffd54a", 26);
+      for (const t of taps) dot(t.x * W, t.y * H, "#ff4d4d");
+      msg.innerHTML = `Tap the center of the yellow cross <b>${i + 1} of ${TARGETS.length}</b>` +
+        `<br><small>${W}×${H} px · ${taps.length ? taps[taps.length - 1].type : "waiting"}</small>`;
+      return;
+    }
+    for (const [tx, ty] of TARGETS) cross(tx * W, ty * H, "rgba(255,255,255,.35)", 14);
+    for (const p of checks) { dot(p.x * W, p.y * H, "#ff4d4d"); dot(p.fx * W, p.fy * H, "#8be06b"); }
+    const m = fit.m.map(v => +v.toFixed(4));
+    msg.innerHTML = fit.err < 6
+      ? `Touch is accurate: taps land within <b>${fit.err.toFixed(0)} px</b> of the crosses. Nothing to fix.`
+      : `Taps were off by up to <b>${fit.err.toFixed(0)} px</b> (${fit.after.toFixed(0)} px after the fix).<br>` +
+        `Over SSH, from the unzipped folder, run:<div id="cmd">sudo bash pi/set-touch.sh ${m.join(" ")}</div>` +
+        `<small>then reboot and run this test again. Tap anywhere to check: red = where the touch landed, green = after the fix.</small>`;
+  }
+
+  function cross(x, y, col, r) {
+    ctx.strokeStyle = col; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.moveTo(x, y - r); ctx.lineTo(x, y + r); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x, y, r * 0.45, 0, 7); ctx.stroke();
+  }
+  function dot(x, y, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); }
+
+  // least-squares affine map from where taps landed to where the targets are:
+  // tx = a*x + b*y + c, ty = d*x + e*y + f (all as fractions of the screen)
+  function solveFit() {
+    const S = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], rx = [0, 0, 0], ry = [0, 0, 0];
+    taps.forEach((p, i) => {
+      const v = [p.x, p.y, 1];
+      for (let r = 0; r < 3; r++) {
+        for (let k = 0; k < 3; k++) S[r][k] += v[r] * v[k];
+        rx[r] += v[r] * TARGETS[i][0]; ry[r] += v[r] * TARGETS[i][1];
+      }
+    });
+    const m = [...solve3(S, rx), ...solve3(S, ry)];
+    const W = innerWidth, H = innerHeight;
+    const off = (i, x, y) => Math.hypot((x - TARGETS[i][0]) * W, (y - TARGETS[i][1]) * H);
+    const err = Math.max(...taps.map((p, i) => off(i, p.x, p.y)));
+    const after = Math.max(...taps.map((p, i) => off(i, ...apply(m, p))));
+    return { m, err, after };
+  }
+  function apply(m, p) { return [m[0] * p.x + m[1] * p.y + m[2], m[3] * p.x + m[4] * p.y + m[5]]; }
+  function det3(a) {
+    return a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0]) +
+      a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0]);
+  }
+  function solve3(A, b) { // Cramer's rule
+    const d = det3(A);
+    return [0, 1, 2].map(k => det3(A.map((row, r) => row.map((v, j) => (j === k ? b[r] : v)))) / d);
+  }
+
+  // Where a press really was, for jittery resistive screens: every sample while
+  // the finger is down, minus the first 40 ms of contact (the noisiest), median.
+  // Same as steadyTap() in app.js, so calibration measures what the app will see.
+  let pts = null, t0 = 0;
+  const add = e => {
+    for (const q of (e.getCoalescedEvents && e.getCoalescedEvents().length ? e.getCoalescedEvents() : [e]))
+      pts.push([q.clientX, q.clientY, e.timeStamp - t0]);
+  };
+  c.addEventListener("pointerdown", e => { pts = []; t0 = e.timeStamp; add(e); c.setPointerCapture(e.pointerId); });
+  c.addEventListener("pointermove", e => { if (pts) add(e); });
+  c.addEventListener("pointercancel", () => { pts = null; });
+  c.addEventListener("pointerup", e => {
+    if (!pts) return;
+    add(e);
+    const settled = pts.filter(q => q[2] >= 40), use = settled.length ? settled : pts;
+    const med = k => use.map(q => q[k]).sort((a, b) => a - b)[use.length >> 1];
+    pts = null;
+    const p = { x: med(0) / innerWidth, y: med(1) / innerHeight, type: e.pointerType };
+    if (fit) {
+      const [fx, fy] = apply(fit.m, p);
+      checks.push({ ...p, fx, fy });
+      if (checks.length > 12) checks.shift();
+    } else {
+      taps.push(p);
+      if (taps.length === TARGETS.length) fit = solveFit();
+    }
+    draw();
+  });
+  document.getElementById("again").addEventListener("pointerup", reset);
+  document.getElementById("back").addEventListener("pointerup", () => { location.href = "/"; });
+  addEventListener("resize", draw);
+  document.addEventListener("contextmenu", e => e.preventDefault());
+  reset();
+})();
+</script>
+</body>
+</html>

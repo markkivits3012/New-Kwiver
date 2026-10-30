@@ -1,0 +1,38 @@
+# Tashua Knolls cart map: serves the app and relays gpsd fixes on 127.0.0.1:8080.
+# Installed by pi/install.sh to /etc/systemd/system/golf-map.service.
+[Unit]
+Description=Tashua Knolls GPS cart map server
+After=network.target gpsd.socket
+Wants=gpsd.socket
+
+[Service]
+Type=simple
+User=golfmap
+Group=golfmap
+# Which course to show: tashua, or a folder in courses/ (e.g. whitney). To switch:
+#   sudo bash pi/set-course.sh whitney
+Environment=GOLF_COURSE=tashua
+ExecStart=/usr/bin/python3 -I /opt/tashua-golf-map/server/gps_server.py --bind 127.0.0.1 --port 8080 --log-dir /var/lib/golf-map --course ${GOLF_COURSE}
+StateDirectory=golf-map
+Restart=always
+RestartSec=3
+
+# Least privilege: the server only reads /opt/tashua-golf-map, talks to gpsd,
+# and writes its trolley command log to /var/lib/golf-map (StateDirectory).
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

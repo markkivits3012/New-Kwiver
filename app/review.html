@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trolley Route Review</title>
+<style>
+@font-face { font-family: Inter; font-weight: 500; src: url(fonts/inter-500.woff2) format("woff2"); }
+@font-face { font-family: Inter; font-weight: 700; src: url(fonts/inter-700.woff2) format("woff2"); }
+:root {
+  --bg: #0a120e; --panel: #101b15; --card: #172a1f; --line: rgba(255,255,255,.09);
+  --text: #f4f7f2; --muted: #9db3a3; --accent: #8be06b; --red: #ff5a5a; --yellow: #ffd23f;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text);
+  font: 500 14px/1.4 Inter, "Segoe UI", Arial, sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+#app { display: grid; grid-template-columns: 340px 1fr; height: 100vh; }
+#side { display: flex; flex-direction: column; min-height: 0; background: var(--panel); border-right: 1px solid var(--line); }
+header { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+h1 { font-size: 17px; font-weight: 700; }
+#summary { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+#tools { display: flex; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+#tools input, #tools select { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+#who { flex: 1; min-width: 0; }
+#list { flex: 1; overflow-y: auto; }
+.row { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: center;
+  padding: 8px 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.row:hover { background: rgba(255,255,255,.03); }
+.row.sel { background: var(--card); }
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.st-proposed { background: var(--yellow); } .st-approved { background: var(--accent); } .st-rejected { background: var(--red); }
+.rid { font-weight: 700; font-size: 13px; }
+.rsub { color: var(--muted); font-size: 12px; }
+.nflag { font-size: 11.5px; color: #1a1300; background: var(--yellow); border-radius: 10px; padding: 1px 7px; font-weight: 700; }
+#export { margin: 10px 16px 14px; padding: 9px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); cursor: pointer; font-weight: 700; }
+#main { position: relative; min-width: 0; }
+#map { display: block; width: 100%; height: 100%; cursor: grab; }
+#card { position: absolute; top: 14px; right: 14px; width: 330px; background: rgba(12,21,16,.93);
+  border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; backdrop-filter: blur(6px); }
+#card h2 { font-size: 16px; font-weight: 700; }
+#card .from { color: var(--muted); font-size: 12.5px; margin-bottom: 10px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12.5px; margin-bottom: 10px; }
+.stats span { color: var(--muted); }
+.flags { list-style: none; margin-bottom: 10px; }
+.flags li { font-size: 12.5px; padding: 5px 8px; border-radius: 7px; background: rgba(255,210,63,.12); color: #ffe7a0; margin-bottom: 4px; }
+.flags li.ok { background: rgba(139,224,107,.12); color: #c9f2b8; }
+#reviewed { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+#note { width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; margin-bottom: 10px; }
+.btns { display: flex; gap: 8px; }
+.btns button { flex: 1; padding: 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); cursor: pointer; font-weight: 700; }
+#approve { background: #2d6a1f; } #reject { background: #6a2020; }
+.keys { margin-top: 8px; font-size: 11.5px; color: var(--muted); }
+#legend { position: absolute; left: 14px; bottom: 14px; display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px;
+  background: rgba(12,21,16,.88); border: 1px solid var(--line); border-radius: 10px; padding: 7px 11px; }
+#legend i { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+#legend label { cursor: pointer; }
+#toast { position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%); background: #223a2c; border: 1px solid var(--line);
+  border-radius: 10px; padding: 8px 14px; font-weight: 700; display: none; }
+#error { padding: 40px; max-width: 640px; }
+#error code { background: var(--card); padding: 2px 6px; border-radius: 5px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <header><h1>Trolley route review</h1><div id="summary">Loading…</div></header>
+    <div id="tools">
+      <input id="who" placeholder="Your name (saved with each review)" maxlength="40">
+      <select id="filter">
+        <option value="all">All routes</option>
+        <option value="flagged">Flagged</option>
+        <option value="proposed">Proposed</option>
+        <option value="approved">Approved</option>
+        <option value="rejected">Rejected</option>
+      </select>
+    </div>
+    <div id="list"></div>
+    <button id="export">Export approved routes as GPX</button>
+  </aside>
+  <main id="main">
+    <canvas id="map"></canvas>
+    <div id="card" hidden>
+      <h2 id="ctitle"></h2>
+      <div class="from" id="cfrom"></div>
+      <div class="stats" id="cstats"></div>
+      <ul class="flags" id="cflags"></ul>
+      <div id="reviewed"></div>
+      <input id="note" placeholder="Note (optional)" maxlength="200">
+      <div class="btns">
+        <button id="approve">Approve</button>
+        <button id="reject">Reject</button>
+        <button id="reset">Reset</button>
+      </div>
+      <div class="keys">Keys: ↑/↓ or J/K next and previous, A approve, R reject, F fit route</div>
+    </div>
+    <div id="legend">
+      <label><input type="checkbox" id="showko" checked> Keep-out</label>
+      <span><i style="background:#28dc3c"></i>Trees</span>
+      <span><i style="background:#f03228"></i>Too steep</span>
+      <span><i style="background:#5078ff"></i>Structures</span>
+      <span><i style="background:#be50ff"></i>Unreachable</span>
+      <span><i style="background:#ffffff"></i>Greens, tees</span>
+      <span><i style="background:#3c8cff"></i>Water</span>
+    </div>
+    <div id="toast"></div>
+  </main>
+</div>
+<script src="course.js"></script>
+<script src="aerial/aerial.js" onerror="window.AERIAL = null"></script>
+<script src="review/review.js"></script>
+</body>
+</html>

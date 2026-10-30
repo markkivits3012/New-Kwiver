@@ -1,0 +1,2 @@
+hole01.mp4 ... hole18.mp4 go here (output of tools/prep_flyovers.py).
+Holes without a clip use the 2D flyover. See FLYOVERS.md.

@@ -1,0 +1,2 @@
+Save the Google Earth Pro Movie Maker recordings here (hole01.mp4 ... hole18.mp4),
+then run: python tools/prep_flyovers.py   See FLYOVERS.md.

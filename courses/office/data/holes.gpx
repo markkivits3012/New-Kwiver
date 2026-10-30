@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="tashua-golf-map make_test_course.py" xmlns="http://www.topografix.com/GPX/1/1">
+<wpt lat="41.1743853" lon="-73.150478"><name>H1 Tee</name></wpt>
+<wpt lat="41.1746928" lon="-73.1502871"><name>H1 Pin</name></wpt>
+<wpt lat="41.1749823" lon="-73.1500723"><name>H2 Tee</name></wpt>
+<wpt lat="41.1750095" lon="-73.1496426"><name>H2 Pin</name></wpt>
+<wpt lat="41.1750547" lon="-73.149762"><name>H3 Tee</name></wpt>
+<wpt lat="41.1744757" lon="-73.1502632"><name>H3 Pin</name></wpt>
+<wpt lat="41.1744033" lon="-73.1502393"><name>H4 Tee</name></wpt>
+<wpt lat="41.1748557" lon="-73.1501319"><name>H4 Pin</name></wpt>
+</gpx>

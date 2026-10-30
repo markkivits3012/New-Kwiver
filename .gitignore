@@ -1,0 +1,5 @@
+_pi-snapshot/
+__pycache__/
+*.pyc
+logs/
+/dist/

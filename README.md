@@ -54,8 +54,9 @@ app falls back to drawn shapes.
 - **Tap the map:** yards from the cart to that spot and from the spot to the pin.
   Tap the marker again to clear it.
 - **Aim targets** (white rings) show yards from the cart.
-- **Arrows:** change hole by hand. The app also advances on its own once the
-  cart has been near the pin and then reaches the next tee.
+- **Arrows:** change hole by hand. When the cart reaches the next hole's tee
+  (within 25 m of a tee box), a banner asks **Switch to hole N?**. **Not now**
+  hides it until the cart has left that tee.
 - **Flyover:** plays on every hole change. Tap anywhere to skip. It uses a
   recorded Google Earth clip for the hole if there is one (see
   [FLYOVERS.md](FLYOVERS.md)). Otherwise it flies the KML tour in **3D** over our
@@ -264,8 +265,8 @@ python tools/build_routes.py --course <id>
 ```
 
 The outline is the trolley's geofence: everything outside it is refused. A
-course can set `advance_m` / `green_m` for short holes (auto-advance defaults
-are 25 m / 40 m). On the Pi, pick the course with
+course can set `advance_m` for short holes (how close to the next tee the
+"Switch to hole N?" banner appears; default 25 m). On the Pi, pick the course with
 `sudo bash pi/set-course.sh <id>` and reboot.
 
 ## Where the data comes from, and known limits

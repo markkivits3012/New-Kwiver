@@ -11,9 +11,10 @@
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ]; then echo "run with sudo"; exit 1; fi
-DESKTOP_USER=${SUDO_USER:-pi}
-DESKTOP_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
 SRC=$(cd "$(dirname "$0")/.." && pwd)
+# the user the screen logs in as: whoever ran sudo, else whoever owns this folder
+DESKTOP_USER=${SUDO_USER:-$(stat -c %U "$SRC")}
+DESKTOP_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
 DEST=/opt/tashua-golf-map
 
 echo "== packages"

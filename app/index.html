@@ -17,8 +17,14 @@
     <canvas id="map3dui" hidden></canvas>
     <div id="tapinfo" hidden></div>
     <!-- GPS says we're at another installed course (menus.js) -->
-    <div id="coursebanner" hidden>
-      <span id="coursebannertext"></span>
+    <!-- GPS says the cart is at the next hole's tee (app.js) -->
+    <div id="holeprompt" class="banner" hidden>
+      <span id="holeprompttext" class="bannertext"></span>
+      <button id="holepromptgo" class="tbtn go">Switch</button>
+      <button id="holepromptno" class="tbtn">Not now</button>
+    </div>
+    <div id="coursebanner" class="banner" hidden>
+      <span id="coursebannertext" class="bannertext"></span>
       <button id="coursebannergo" class="tbtn go" data-act="coursebannergo">Switch</button>
       <button id="coursebannerno" class="tbtn" data-act="coursebannerno">Not now</button>
     </div>

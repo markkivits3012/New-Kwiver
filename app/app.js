@@ -7,8 +7,7 @@
   document.title = `${C.name} GPS`;
   const YD = 1.09361;              // yards per meter
   // (a course.js can set tighter ones: the office test course's holes are only 40-75 yd)
-  const ADVANCE_M = C.advance_m || 25; // this close to the next tee -> go to that hole...
-  const GREEN_M = C.green_m || 40;     // ...but only after the cart got this close to the pin
+  const ADVANCE_M = C.advance_m || 25; // this close to the next tee -> offer to switch to that hole
   const STALE_MS = 6000;           // no fix for this long -> "GPS lost"
   const OFF_COURSE_M = 2000;
   const ARCS_YD = [100, 150, 200]; // layup arcs measured from the green center
@@ -101,7 +100,8 @@
   let fix = null;        // {p: {x,y}, acc, t}
   let rx = null;         // receiver status from /gps/status: {gpsd, device, mode, seen, used} or {sim}
   let gotFirstFix = false;
-  let reachedGreen = false; // carts drive past other holes' tees; don't advance until this hole is played
+  let prompt = null;      // hole index the "Switch to hole N?" banner is offering, or null
+  let declined = null;   // hole index the golfer said "Not now" to, until the cart leaves its tee
   let tap = null;        // world point the user tapped
   let cam = null;        // what's on screen now
   let view = null;       // transform for cam
@@ -669,7 +669,8 @@
   function setHole(i) {
     idx = (i + holes.length) % holes.length;
     tap = null;
-    reachedGreen = false;
+    showPrompt(null);
+    declined = null;
     flight = null;
     if (videoOn) stopVideo();
     if (mode3d === "fly") { flight3d = null; show3d(null); }
@@ -679,7 +680,8 @@
   }
 
   // ---- GPS -----------------------------------------------------------------------
-  function nearTee(h, p) { return h.tees.some(t => dist(t, p) < ADVANCE_M) || dist(h.line[0], p) < ADVANCE_M; }
+  // within ADVANCE_M (times k) of any of the hole's tee boxes
+  function nearTee(h, p, k = 1) { return h.tees.some(t => dist(t, p) < ADVANCE_M * k) || dist(h.line[0], p) < ADVANCE_M * k; }
 
   function onFix(lat, lon, acc, sim) {
     fix = { p: proj([lat, lon]), lat, lon, acc, t: Date.now(), sim };
@@ -690,10 +692,22 @@
       const i = holes.findIndex(h => nearTee(h, fix.p));
       if (i >= 0 && i !== idx) return setHole(i);
     }
-    if (dist(fix.p, holes[idx].pin) < GREEN_M) reachedGreen = true;
+    // at the next hole's tee: ask before switching (carts pass other tees,
+    // and a golfer may wait there for the group ahead)
     const next = (idx + 1) % holes.length;
-    if (reachedGreen && nearTee(holes[next], fix.p)) return setHole(next);
+    if (nearTee(holes[next], fix.p)) {
+      if (declined !== next) showPrompt(next);
+    } else if (!nearTee(holes[next], fix.p, 2)) {
+      showPrompt(null); // well clear of the tee: hide, and ask again next time
+      declined = null;
+    }
     render();
+  }
+
+  function showPrompt(i) {
+    prompt = i;
+    $("holeprompt").hidden = i == null;
+    if (i != null) $("holeprompttext").innerHTML = `At the hole ${holes[i].no} tee<b>Switch to hole ${holes[i].no}?</b>`;
   }
 
   function startGps() {
@@ -867,6 +881,8 @@
   }
   onTap($("confirmyes"), sendPending);
   onTap($("confirmno"), cancelConfirm);
+  onTap($("holepromptgo"), () => { if (prompt != null) setHole(prompt); });
+  onTap($("holepromptno"), () => { declined = prompt; showPrompt(null); });
   // hold the GPS status line for 3 s: the touch calibration page
   let holdTimer = null;
   $("status").addEventListener("pointerdown", () => { holdTimer = setTimeout(() => { location.href = "touchtest.html"; }, 3000); });

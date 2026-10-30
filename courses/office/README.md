@@ -16,9 +16,9 @@ face, plus the lane along the building's north end. See `data/layout_check.jpg`
 | 3 | 3 | 84 | north lane, back diagonally down past the building face |
 | 4 | 3 | 56 | south lane, back up the middle |
 
-Greens are 8 m across (4 m radius). Auto-advance is tightened for this course:
-the green counts as visited within 8 m of the pin, and the next hole starts
-within 8 m of its tee (Tashua uses 40 m / 25 m).
+Greens are 8 m across (4 m radius). The "Switch to hole N?" banner is
+tightened for this course: it appears within 8 m of the next tee (Tashua uses
+25 m). (`green_m` is no longer used.)
 
 ## Files
 
@@ -57,7 +57,7 @@ north half becomes unreachable (lots of code 9 "can't drive to" cells, and
 
 - [ ] Pi (or laptop) with the USB GPS and gpsd; check `GPS ±` settles to under 5 yd.
 - [ ] Load `data/holes.gpx` on a phone; stand on each tee and pin and compare the app's yardage to a laser or paced distance.
-- [ ] Walk the loop: hole 1 doesn't advance until you have been on its green, then advances at the hole 2 tee. Repeat for each hole.
+- [ ] Walk the loop: at the hole 2 tee the screen asks "Switch to hole 2?"; Switch changes hole, Not now hides it until you walk away. Repeat for each hole.
 - [ ] 3D button and flyovers; note the frame rate (first real Pi renderer test).
 - [ ] Tap-to-measure on a couple of known points (building corner, tank).
 - [ ] Mock trolley only (`--mock-trolley`). The real trolley only off-hours, with a spotter holding the stop, and with the building/landlord's OK. Trucks, trailers and parked cars are **not** on any map; the geofence and heartbeat stop are the only protection.

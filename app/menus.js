@@ -275,28 +275,17 @@
   function scoreTools() {
     return `<button class="chipbtn" data-act="hcp">HCP <b>${fmtHcp(round ? round.hcp : player.hcp)}</b></button>
       <span class="chipinfo">${esc(teeSets[tee].name)} tees</span>
-      <button class="chipbtn" data-act="history">Past rounds</button>`;
+      <button class="chipbtn" data-act="history">Past rounds</button>
+      <button class="chipbtn finish" data-act="finish"${round ? "" : " disabled"}>Finish round</button>`;
   }
 
+  // Card across the full width, totals under it, and the hole picker and
+  // score stepper in one bar along the bottom.
   function scoreHtml() {
     const s = round ? round.scores : Array(N).fill(null);
     const ch = courseHcp();
     const p = par(sel), v = s[sel], si = strokeIndex(sel), got = strokesOn(sel, ch);
     const dots = got > 0 ? `<span class="dots">${"●".repeat(got)}</span>` : got < 0 ? `<span class="dots">+${-got}</span>` : "";
-    const left = `<div class="scoreleft">
-      <div class="holepick">
-        <button class="nav small" data-act="sel" data-arg="${sel - 1}">‹</button>
-        <div><div class="eyebrow">HOLE</div><div class="bigno">${A.holes[sel].no}</div></div>
-        <button class="nav small" data-act="sel" data-arg="${sel + 1}">›</button>
-      </div>
-      <div class="holeinfo">Par ${p ?? "?"}${si ? ` · SI ${si}` : ""} ${dots}</div>
-      <div class="stepper">
-        <button class="step" data-act="minus">−</button>
-        <div class="stepval ${cls(v, p)}">${v ?? "–"}</div>
-        <button class="step" data-act="plus">+</button>
-      </div>
-      <div class="mrow"><button class="tbtn" data-act="par">Par</button><button class="tbtn" data-act="clear">Clear</button></div>
-    </div>`;
     const grid = cardGrid(s, A.holes.map((h, i) => par(i)), A.holes.map(h => h.no), sel);
     const t = totals();
     const sum = `<div class="totals">
@@ -304,8 +293,17 @@
       <div><span>To par</span><b>${t.played ? fmtPar(t.toPar) : "–"}</b></div>
       <div><span>Net${ch != null ? ` (CH ${ch})` : ""}</span><b>${t.net ?? "–"}</b></div>
       <div><span>Thru</span><b>${t.played}</b></div></div>`;
-    return `<div class="cols">${left}<div class="col">${grid}${sum}
-      <div class="mrow"><button class="tbtn" data-act="finish"${round ? "" : " disabled"}>Finish round</button></div></div></div>`;
+    const bar = `<div class="scorebar">
+      <button class="nav small" data-act="sel" data-arg="${sel - 1}">‹</button>
+      <div class="barhole"><div class="eyebrow">HOLE</div><div class="bigno">${A.holes[sel].no}</div></div>
+      <button class="nav small" data-act="sel" data-arg="${sel + 1}">›</button>
+      <div class="holeinfo">Par ${p ?? "?"}${si ? `<br>SI ${si}` : ""} ${dots}</div>
+      <div class="stepper">
+        <button class="step" data-act="minus">−</button>
+        <div class="stepval ${cls(v, p)}">${v ?? "–"}</div>
+        <button class="step" data-act="plus">+</button>
+      </div></div>`;
+    return `<div class="scorewrap"><div class="card18">${grid}</div>${sum}${bar}</div>`;
   }
   // the card: rows of up to 9 holes, each with its subtotal. With sel, the
   // cells are buttons that pick the hole; without, it's for looking only.
@@ -597,14 +595,19 @@
       case "sel": sel = (+arg + N) % N; return draw();
       case "minus": return setScore(sel, s == null ? (par(sel) || 4) - 1 : s - 1);
       case "plus": return setScore(sel, s == null ? (par(sel) || 4) + 1 : s + 1);
-      case "par": return setScore(sel, par(sel) || 4);
-      case "clear": return setScore(sel, null);
-      case "finish":
-        return modal(`<h2>Finish this round?</h2><p>It's saved to the round history and the card is cleared.</p>
-          <div class="mrow"><button class="tbtn" data-act="close">Cancel</button>
-          <button class="tbtn" data-act="discard">Clear, don't save</button>
-          <button class="tbtn go" data-act="finish-yes">Finish</button></div>`, true);
+      case "finish": {
+        const t = totals();
+        return modal(`<h2>End this round?</h2><p>${t.played ? `${t.played} hole${t.played === 1 ? "" : "s"} scored, ${t.gross} gross. ` : ""}It's saved to Past rounds and the card is cleared for a new round.</p>
+          <div class="mrow"><button class="tbtn" data-act="close">Keep playing</button>
+          <button class="tbtn go" data-act="finish-yes">End round</button></div>
+          <div class="mrow"><button class="tbtn quiet" data-act="discard-ask">Discard without saving…</button></div>`, true);
+      }
       case "finish-yes": closeModal(); return finishRound(true).then(draw);
+      // a second step, so the scores can't be thrown away with one stray tap
+      case "discard-ask":
+        return modal(`<h2>Discard this round?</h2><p>The scores are deleted and not kept in Past rounds. This can't be undone.</p>
+          <div class="mrow"><button class="tbtn" data-act="close">Cancel</button>
+          <button class="tbtn danger" data-act="discard">Discard round</button></div>`, true);
       case "discard": closeModal(); return finishRound(false).then(draw);
       case "hcp": return keypad();
       case "key": return key(arg);

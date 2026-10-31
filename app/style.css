@@ -108,6 +108,8 @@ svg { display: block; }
 .tbtn.stop:active { background: #ff7a72; }
 .tbtn.go { border: 0; color: #1a1205; background: linear-gradient(180deg, #ffb75c, #f0921f); }
 .tbtn:disabled { opacity: .35; }
+.tbtn.quiet { height: 48px; flex: 1; font-size: 14px; color: var(--muted); background: none; }
+.tbtn.danger { border: 0; background: linear-gradient(180deg, #ff5f57, #e0352d); }
 #confirm { margin-bottom: 7px; padding: 4px 4px 4px 8px; border-radius: 12px; background: rgba(255, 165, 59, .12); }
 #confirmtext { flex: 2; font-size: 14px; font-weight: 700; }
 #confirm .tbtn { height: 56px; }
@@ -151,32 +153,41 @@ svg { display: block; }
 .chipbtn { height: 48px; padding: 0 16px; border-radius: 999px; background: var(--card); border: 1px solid var(--line);
   font-size: 14px; color: var(--muted); }
 .chipbtn b { color: var(--text); font-size: 18px; margin-left: 4px; }
-.scoreleft { flex: 0 0 250px; display: flex; flex-direction: column; gap: 10px; }
-.holepick { display: flex; align-items: center; justify-content: space-between; text-align: center; }
-.nav.small { width: 60px; height: 64px; font-size: 34px; font-weight: 700; }
-.bigno { font-size: 50px; font-weight: 800; line-height: 1; }
-.holeinfo { text-align: center; font-size: 15px; color: var(--muted); }
+.chipbtn.finish { color: #1a1205; font-weight: 800; border: 0; background: linear-gradient(180deg, #ffb75c, #f0921f); }
+.chipbtn:disabled { opacity: .35; }
+.scorewrap { display: flex; flex-direction: column; gap: 8px; height: 100%; }
+.card18 { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.cardrow { display: flex; gap: 3px; }
+.card18 .cardrow { flex: 1; max-height: 140px; gap: 4px; }
+.cell { flex: 1; height: 84px; min-width: 0; border-radius: 12px; background: var(--card); border: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+.cell.sel { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139, 224, 107, .45); background: #1f3a2a; }
+.cell.sum { flex: 1.15; background: rgba(255, 255, 255, .04); }
+.ch { font-size: 11px; font-weight: 800; color: #dfe9e0; }
+.cp { font-size: 11px; font-weight: 700; color: var(--muted); }
+.cs { font-size: 22px; font-weight: 800; min-height: 28px; min-width: 30px; text-align: center; font-variant-numeric: tabular-nums; }
+.card18 .cell { height: auto; }
+.card18 .ch { font-size: 17px; }
+.card18 .cp { font-size: 13px; }
+.card18 .cs { font-size: 40px; line-height: 1.05; min-height: 42px; min-width: 40px; }
+.scorebar { display: flex; align-items: center; gap: 8px; padding-top: 2px; }
+.nav.small { width: 64px; height: 72px; font-size: 36px; font-weight: 700; }
+.barhole { width: 64px; text-align: center; }
+.bigno { font-size: 44px; font-weight: 800; line-height: 1; }
+.holeinfo { flex: 1; padding-left: 8px; font-size: 17px; font-weight: 700; line-height: 1.3; color: var(--muted); }
 .dots { color: var(--accent); letter-spacing: 2px; }
 .stepper { display: flex; align-items: center; gap: 8px; }
-.step { flex: 0 0 76px; height: 96px; border-radius: 16px; font-size: 44px; font-weight: 700;
+.step { flex: 0 0 88px; height: 72px; border-radius: 16px; font-size: 44px; font-weight: 700;
   background: var(--card); border: 1px solid var(--line); }
 .step:active { background: #24402f; }
-.stepval { flex: 1; text-align: center; font-size: 72px; font-weight: 800; font-variant-numeric: tabular-nums; }
-.cardrow { display: flex; gap: 3px; }
-.cell { flex: 1; min-width: 0; height: 84px; border-radius: 10px; background: var(--card); border: 1px solid var(--line);
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
-.cell.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(139, 224, 107, .4); }
-.cell.sum { background: rgba(255, 255, 255, .04); }
-.ch { font-size: 11px; font-weight: 700; color: var(--muted); }
-.cp { font-size: 11px; color: var(--muted); }
-.cs { font-size: 22px; font-weight: 800; min-height: 28px; min-width: 30px; text-align: center; border-radius: 8px; }
+.stepval { width: 96px; text-align: center; font-size: 60px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
 .cs.eagle, .stepval.eagle { color: #ffd54a; }
 .cs.birdie, .stepval.birdie { color: #ff8a80; }
 .cs.bogey, .stepval.bogey { color: #8cc8ff; }
 .cs.double, .stepval.double { color: #b39dff; }
 .totals { display: flex; gap: 8px; }
-.totals div { flex: 1; padding: 6px 10px; border-radius: 12px; background: var(--card); border: 1px solid var(--line);
-  display: flex; flex-direction: column; }
+.totals div { flex: 1; padding: 6px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
 .totals span { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
 .totals b { font-size: 26px; font-weight: 800; }
 

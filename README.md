@@ -68,12 +68,14 @@ app falls back to drawn shapes.
 - **Menu:** pick the course (it shows how far away each one is) and the tees.
   When the GPS shows the cart at another installed course, a banner offers to
   switch. Switching restarts the map server on that course and reloads the screen.
-- **Score:** set your handicap index (HCP), then tap − / + / Par for each hole;
-  tap a hole on the card to change it. It opens on the hole the GPS puts the cart
+- **Score:** set your handicap index (HCP), then tap − / + in the bar along the
+  bottom for each hole (the first tap starts from par); ‹ › or a tap on the card
+  changes hole. It opens on the hole the GPS puts the cart
   on (the hole on screen without a fix). At a tee, with that hole and the one
   before still blank, it opens on the hole just finished. It shows gross, to par and net (with a
   course's `scorecard.json`, net counts handicap strokes hole by hole; see
-  [BUILDING.md](BUILDING.md)). **Finish round** keeps it in the round history.
+  [BUILDING.md](BUILDING.md)). **Finish round** (top bar) asks before ending the round and keeps it in the
+  round history; discarding a round without saving takes a second confirmation.
   Scores are saved on the Pi as you go, so a power cut doesn't lose them.
   **Past rounds** lists finished rounds, newest first, from every course; tap
   one to see its card. They're kept in `/var/lib/golf-map/rounds.jsonl` on the Pi.

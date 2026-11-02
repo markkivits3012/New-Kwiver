@@ -9,6 +9,9 @@ Any other course mirrors that layout under courses/<id>/:
 
 The app, the review page and all shared code stay in app/ and server/; the
 server swaps in only the course's own files (COURSE_FILES) for --course.
+
+GOLFMAP_COURSES_DIR moves the courses/ folder elsewhere, so the course builder
+(builder/) can run the tools/ scripts in a scratch folder, not the repo.
 """
 import json
 import os
@@ -16,6 +19,7 @@ import re
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 DEFAULT = "tashua"
+COURSES = os.environ.get("GOLFMAP_COURSES_DIR") or os.path.join(ROOT, "courses")
 # URL paths under app/ that belong to a course, not to the app
 COURSE_FILES = ("course.js", "scorecard.json", "aerial/", "terrain3d/", "flyovers/", "review/keepout.png")
 
@@ -25,7 +29,7 @@ def base(course=DEFAULT):
         return ROOT
     if not re.fullmatch(r"[a-z0-9_-]+", course):
         raise ValueError(f"bad course id {course!r}")
-    return os.path.join(ROOT, "courses", course)
+    return os.path.join(COURSES, course)
 
 
 def path(course, *parts):
@@ -41,8 +45,7 @@ def load_course(course=DEFAULT):
 def ids():
     """Every installed course: tashua, then each courses/<id>/ that has a course.js."""
     found = [DEFAULT] if os.path.isfile(path(DEFAULT, "app", "course.js")) else []
-    folder = os.path.join(ROOT, "courses")
-    for c in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
+    for c in sorted(os.listdir(COURSES)) if os.path.isdir(COURSES) else []:
         if re.fullmatch(r"[a-z0-9_-]+", c) and os.path.isfile(path(c, "app", "course.js")):
             found.append(c)
     return found

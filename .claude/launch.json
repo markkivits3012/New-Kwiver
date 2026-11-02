@@ -31,6 +31,14 @@
         "8081"
       ],
       "port": 8081
+    },
+    {
+      "name": "course-builder",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "builder/builder.py"
+      ],
+      "port": 8090
     }
   ]
 }

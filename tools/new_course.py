@@ -33,6 +33,17 @@ def search(text):
             and h.get("osm_type") in ("way", "relation")]
 
 
+def config(h, name):
+    """course.json for a Nominatim hit; also used by builder/builder.py."""
+    s, n, w, e = (float(v) for v in h["boundingbox"])
+    dlat = PAD_M / 110540
+    dlon = PAD_M / (111320 * math.cos(math.radians((s + n) / 2)))
+    return {"name": h["name"] or name,
+            "bbox": [round(w - dlon, 5), round(s - dlat, 5), round(e + dlon, 5), round(n + dlat, 5)],
+            "outline": f"{h['osm_type']}/{h['osm_id']}",
+            "share": True}
+
+
 def main():
     if len(sys.argv) != 3:
         sys.exit(__doc__)
@@ -53,13 +64,7 @@ def main():
     for h in hits[1:]:
         print(f"  (also found: {h['display_name']})")
     h = hits[0]
-    s, n, w, e = (float(v) for v in h["boundingbox"])
-    dlat = PAD_M / 110540
-    dlon = PAD_M / (111320 * math.cos(math.radians((s + n) / 2)))
-    course = {"name": h["name"] or text.split(",")[0],
-              "bbox": [round(w - dlon, 5), round(s - dlat, 5), round(e + dlon, 5), round(n + dlat, 5)],
-              "outline": f"{h['osm_type']}/{h['osm_id']}",
-              "share": True}
+    course = config(h, text.split(",")[0])
     os.makedirs(folder, exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
         json.dump(course, f, indent=2)

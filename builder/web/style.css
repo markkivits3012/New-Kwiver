@@ -1,0 +1,37 @@
+:root {
+  --bg: #f4f6f2; --card: #fff; --ink: #1d2a1f; --muted: #5d6b60; --line: #d6ddd3;
+  --accent: #2e7d32; --warn: #a15c00; --bad: #b3261e;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #141a15; --card: #1e2620; --ink: #e5ebe3; --muted: #9aa79c; --line: #334036;
+          --accent: #66bb6a; --warn: #e0a040; --bad: #ef7a72; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.4 system-ui, sans-serif; }
+header { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+header h1 { font-size: 20px; margin: 0; flex: 1; }
+main { max-width: 860px; margin: 0 auto; padding: 8px 16px 40px; }
+h2 { font-size: 17px; margin: 24px 0 8px; }
+label { display: block; margin: 8px 0; color: var(--muted); }
+input { font: inherit; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+        background: var(--card); color: var(--ink); }
+label input { display: block; width: 100%; max-width: 320px; margin-top: 4px; }
+button, .btn { font: inherit; padding: 8px 14px; border: 0; border-radius: 6px; cursor: pointer;
+               background: var(--accent); color: #fff; text-decoration: none; display: inline-block; }
+button:disabled { opacity: .5; }
+.quiet { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row input { flex: 1; min-width: 200px; }
+ul { list-style: none; padding: 0; margin: 0; }
+.card { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; background: var(--card);
+        border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+.grow { flex: 1; min-width: 220px; }
+.act { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.act input.id { width: 150px; }
+.small { font-size: 14px; color: var(--muted); }
+.msg { color: var(--warn); }
+.card .msg { flex-basis: 100%; }
+.warn { color: var(--warn); }
+.status.done { color: var(--accent); }
+.status.failed { color: var(--bad); }
+.hint code { background: var(--card); padding: 1px 4px; border-radius: 4px; }

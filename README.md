@@ -189,6 +189,7 @@ python server/gps_server.py --sim --review       # then open http://127.0.0.1:80
 | `BUILDING.md` | Short guide: add a course, build the package, install, pick the course, fix touch |
 | `courses/whitney/` | Whitney Farms: the same files as Tashua's, for `--course whitney` |
 | `tools/new_course.py`, `tools/build_all.py` | Start a course from OSM; build all its data in one go |
+| `builder/`, `tools/import_course.py`, `tools/coursepack.py` | Course builder web page (PC only); import its course files; the `.zip` format |
 | `app/touchtest.html`, `pi/set-touch.sh` | Touch calibration page and the script that applies it |
 | `pi/set-course.sh` | Picks the course the Pi shows |
 | `tools/make_test_course.py` | Builds a made-up test course from `courses/<id>/course-def.json` |
@@ -252,6 +253,11 @@ Aim targets are the bends in each OSM hole line. Flyovers are generated (tee,
 halfway, green, back). If an OSM hole line stops short of its green,
 `build_course.py` extends it to the unclaimed green ahead and prints a WARNING.
 `make_package.py` ships every course marked `"share": true`.
+
+**Course builder** (`builder/`): the same pipeline behind a web page on the
+PC. Sign in, search a course by name, press Build, and download it as a course
+file (`<id>.zip`); `tools/import_course.py` puts it in `courses/<id>/`. See
+[BUILDING.md](BUILDING.md), "Course builder".
 
 **Fairchild Wheeler Red and Black** (Fairfield, CT; built 2026-10-30): one
 OSM golf course with two 18-hole layouts, split by `hole_tags` (see

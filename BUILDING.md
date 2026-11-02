@@ -58,6 +58,41 @@ python server/gps_server.py --course <id> --sim --mock-trolley
 
 Then open http://127.0.0.1:8080. Press Ctrl+C to stop.
 
+### Or use the course builder (web page on the PC)
+
+The course builder does step 1 from a browser and hands you a course file
+(a `.zip`) to import, so courses can be built by someone without the repo
+checked out the same way, or kept and imported later.
+
+```bash
+python builder/builder.py
+```
+
+Open http://127.0.0.1:8090, register (user name + password, kept on this PC
+in `builder/work/users.json`, hashed) and sign in. Search by the course name,
+adding the town and state if it finds nothing. Each hit shows the course id it
+will use (edit it if you like) and whether the repo already has that course.
+Press **Build**: it runs `build_all.py` in `builder/work/jobs/` (not in
+`courses/`), one build at a time, a few minutes each. When it says **done**,
+look at **Log** (WARNING lines) and **Terrain check**, then **Download**.
+
+Import the course file into the repo, try it, then commit and ship it as usual:
+
+```bash
+python tools/import_course.py longshore.zip
+python server/gps_server.py --sim --course longshore
+```
+
+`--id <other>` imports it under another id; `--force` replaces an existing
+`courses/<id>/`. Add a scorecard afterwards as below.
+
+The course file holds `golfmap-course.json` (format, id, name, holes, par,
+build date, OSM id, who built it) and the `courses/<id>/` files the cart needs:
+`course.json`, `app/`, `server/` and `data/osm_map.json` (format in
+`tools/coursepack.py`). Builder options: `--port`, `--work <folder>`,
+`--no-register` (only existing users can sign in). It listens on 127.0.0.1
+only. It is a PC tool: `pi/update.sh` never installs it on the Pi.
+
 ## 2. Build the package (PC)
 
 ```bash

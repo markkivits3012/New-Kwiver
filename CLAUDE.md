@@ -18,6 +18,7 @@ Python server. **The Pi has no internet on the course.**
 | `courses/<id>/` | Every course except Tashua Knolls, which stays at the project root |
 | `pi/` | `install.sh`, `update.sh`, `kiosk.sh`, `kiosk-setup.sh`, `set-course.sh`, `hotspot.sh`, `golf-map.service` |
 | `tools/` | Course building (`new_course.py`, `build_all.py`, `build_course.py`, fetchers), `make_update.py` (USB package) |
+| `builder/` | Course builder: PC-only web page (sign in, search, build, download a course `.zip`); `tools/import_course.py` imports it. May use the PC's internet, never runs on the Pi |
 | `_pi-snapshot/` | Gitignored raw copy taken from the Pi. Reference only; never edit |
 
 ## Hard constraints

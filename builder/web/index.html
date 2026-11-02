@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Course Builder</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Course Builder</h1>
+  <span id="who"></span>
+  <button id="logout" hidden>Sign out</button>
+</header>
+
+<main>
+  <section id="signin" hidden>
+    <h2>Sign in</h2>
+    <form id="authForm">
+      <label>User name <input id="user" autocomplete="username" required></label>
+      <label>Password <input id="pw" type="password" autocomplete="current-password" required></label>
+      <div class="row">
+        <button id="loginBtn" type="submit">Sign in</button>
+        <button id="registerBtn" type="button" class="quiet">Register</button>
+      </div>
+      <p id="authMsg" class="msg"></p>
+    </form>
+  </section>
+
+  <section id="app" hidden>
+    <h2>Find a course</h2>
+    <form id="searchForm" class="row">
+      <input id="q" placeholder="Course name, town state (e.g. Whitney Farms, Monroe CT)" required>
+      <button type="submit">Search</button>
+    </form>
+    <p id="searchMsg" class="msg"></p>
+    <ul id="results"></ul>
+
+    <h2>My builds</h2>
+    <p class="hint">A build takes a few minutes (OpenStreetMap, aerial photos, elevation).
+      When it's done, download the course file and import it into the repo:
+      <code>python tools/import_course.py &lt;id&gt;.zip</code></p>
+    <ul id="jobs"></ul>
+  </section>
+</main>
+
+<script src="builder.js"></script>
+</body>
+</html>

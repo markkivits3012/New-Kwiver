@@ -2,7 +2,7 @@
 // Settings (GPS and remote status, My Bag) screens, the banner that offers to
 // switch course when the GPS is at another installed course, and the club
 // suggestion under the Center yardage. Talks to the server's /api/courses,
-// /api/course, /api/player, /api/round, /api/rounds and /api/bag (store.py),
+// /api/course, /api/courses/hidden, /api/player, /api/round, /api/rounds and /api/bag (store.py),
 // and /api/remote (remote.py);
 // reads the map's state through window.APP (end of app.js).
 (function () {
@@ -15,6 +15,8 @@
   const DETECT_EVERY_MS = 20000;
   const SAVE_DELAY_MS = 400;   // score taps are saved after this pause
   const HIST_PAGE = 4;         // past rounds listed per page
+  const COURSE_PAGE = 4;       // courses listed per page on the Menu
+  const FIND_LEN = 20;
   const CLUBS = ["Driver", "3 wood", "5 wood", "7 wood", "2 hybrid", "3 hybrid", "4 hybrid", "5 hybrid",
                  "3 iron", "4 iron", "5 iron", "6 iron", "7 iron", "8 iron", "9 iron", "PW", "GW", "SW", "LW"];
   const CLUB_MIN_YD = 20;      // nearer the pin than this: no club suggested (putting)
@@ -24,6 +26,8 @@
 
   // ---- state ---------------------------------------------------------------------
   let courses = [];            // /api/courses: [{id, name, holes, par, bbox}]
+  let hidden = [];             // ids taken off the course list (store.py hidden.json)
+  let coursePage = 0, courseFind = "", courseEdit = false; // Menu: page, search text, hide mode
   let current = null;          // id of the course on screen
   let player = { hcp: null, tees: {} };
   let card = null;             // this course's scorecard.json, or null
@@ -162,6 +166,7 @@
   function courseAt(lat, lon) {
     let best = null, bd = HERE_M;
     for (const c of courses) {
+      if (hidden.includes(c.id)) continue;
       const d = distTo(c, lat, lon);
       if (d < bd || (d === bd && c.id === current)) { best = c; bd = d; }
     }
@@ -207,6 +212,7 @@
   // ---- sheets (full-screen panels) ---------------------------------------------------
   function show(which) {
     if (which === "score" && open !== "history") sel = holeNow();
+    if (which === "menu" && open !== "menu") { coursePage = 0; courseFind = ""; courseEdit = false; }
     if (which === "history" && !history) {
       histSel = histPage = 0;
       api("/api/rounds").then(r => { history = r; draw(); }, e => toast(`Couldn't load rounds: ${e}`));
@@ -221,7 +227,7 @@
     const stop = A.trolley() ? `<button class="tbtn stop" data-act="stop">STOP</button>` : "";
     const back = (to, label) => `<button class="chipbtn" data-act="${to}">‹ <b>${label}</b></button>`;
     const [tools, body] = {
-      menu: () => ["", menuHtml()],
+      menu: () => [menuTools(), menuHtml()],
       score: () => [scoreTools(), scoreHtml()],
       history: () => [back("btnscore", "Score"), historyHtml()],
       settings: () => ["", settingsHtml()],
@@ -242,20 +248,57 @@
     return i;
   }
 
+  function menuTools() {
+    const find = courseFind
+      ? `<button class="chipbtn" data-act="find">Search <b>${esc(courseFind)}</b></button>
+         <button class="chipbtn" data-act="findclear">✕</button>`
+      : `<button class="chipbtn" data-act="find">Search</button>`;
+    return find + `<button class="chipbtn${courseEdit ? " finish" : ""}" data-act="courseedit">${courseEdit ? "Done" : "Hide courses"}</button>`;
+  }
+
+  // The course on screen first, then nearest first (by name without a fix).
+  // Hidden courses only show while hiding/showing them.
+  function courseRows(f, fresh, find) {
+    const q = find.toLowerCase();
+    const d = c => (fresh ? distTo(c, f.lat, f.lon) : 0);
+    return courses
+      .filter(c => (courseEdit || c.id === current || !hidden.includes(c.id)) && (!q || c.name.toLowerCase().includes(q)))
+      .sort((a, b) => (b.id === current) - (a.id === current) || d(a) - d(b) || a.name.localeCompare(b.name));
+  }
+
   function menuHtml() {
     const f = A.fix();
     const fresh = f && Date.now() - f.t < A.STALE_MS;
-    const list = courses.map(c => {
+    const rows = courseRows(f, fresh, courseFind);
+    const pages = Math.max(1, Math.ceil(rows.length / COURSE_PAGE));
+    coursePage = Math.min(coursePage, pages - 1);
+    const list = rows.slice(coursePage * COURSE_PAGE, (coursePage + 1) * COURSE_PAGE).map(c => {
       let where = "";
       if (fresh) {
         const d = distTo(c, f.lat, f.lon);
         where = d < HERE_M ? "You're here" : `${(d / 1609.34).toFixed(d < 16093 ? 1 : 0)} mi away`;
       }
-      return `<button class="item${c.id === current ? " on" : ""}" data-act="course" data-arg="${esc(c.id)}">
+      const off = hidden.includes(c.id);
+      return `<button class="item${c.id === current ? " on" : ""}${off ? " off" : ""}" data-act="course" data-arg="${esc(c.id)}">
         <span class="itemname">${esc(c.name)}</span>
-        <span class="itemsub">${c.holes} holes · par ${c.par}${where ? ` · ${where}` : ""}</span>
-        ${c.id === current ? `<span class="tag">Playing</span>` : ""}</button>`;
-    }).join("") || `<p class="note">Course list unavailable.</p>`;
+        <span class="itemsub">${c.holes} holes · par ${c.par || "?"}${where ? ` · ${where}` : ""}</span>
+        ${c.id === current ? `<span class="tag">Playing</span>` : off ? `<span class="tag">Hidden</span>` : ""}</button>`;
+    }).join("") || `<p class="note">${courses.length ? `No course matches “${esc(courseFind)}”.` : "Course list unavailable."}</p>`;
+    const pager = pages > 1 ? `<div class="mrow">
+        <button class="tbtn" data-act="coursepage" data-arg="${coursePage - 1}"${coursePage ? "" : " disabled"}>‹ Back</button>
+        <span class="pageno">${coursePage + 1} / ${pages}</span>
+        <button class="tbtn" data-act="coursepage" data-arg="${coursePage + 1}"${coursePage < pages - 1 ? "" : " disabled"}>More ›</button></div>` : "";
+    const left = `<div class="col"><div class="eyebrow">COURSE${rows.length > COURSE_PAGE ? ` · ${rows.length}` : ""}</div>
+      <div class="list">${list}</div>${pager}</div>`;
+    if (courseEdit) {
+      const n = hidden.filter(id => courses.some(c => c.id === id)).length;
+      return `<div class="cols">${left}
+        <div class="col"><div class="eyebrow">HIDE COURSES</div>
+          <p class="note">Tap a course to take it off the list, or tap a hidden one to bring it back.
+          ${n ? `${n} hidden.` : "None hidden."} The GPS won't offer a hidden course either.</p>
+          <p class="note">Hiding keeps the course on the cart. To remove it for good, delete it on the PC and update the cart by USB (see BUILDING.md).</p>
+        </div></div>`;
+    }
     const tees = teeSets.map((t, k) => {
       const yds = teeTotal(t);
       const sub = [yds ? `${yds.toLocaleString("en-US")} yds` : null,
@@ -265,11 +308,26 @@
         <span class="itemsub">${sub}</span></button>`;
     }).join("");
     const est = teeSets[0] && teeSets[0].est;
-    return `<div class="cols">
-      <div class="col"><div class="eyebrow">COURSE</div><div class="list">${list}</div></div>
+    return `<div class="cols">${left}
       <div class="col"><div class="eyebrow">TEES</div><div class="list">${tees}</div>
         ${est ? `<p class="note">Tees and yards are estimated from the map. Add this course's scorecard for exact yards, slope and rating.</p>` : ""}
       </div></div>`;
+  }
+
+  function askHide(c) {
+    if (c.id === current) return toast("The course you're playing can't be hidden.");
+    const off = hidden.includes(c.id);
+    modal(off
+      ? `<h2>Show ${esc(c.name)} again?</h2><p>It goes back on the course list.</p>
+        <div class="mrow"><button class="tbtn" data-act="close">Cancel</button>
+        <button class="tbtn go" data-act="unhide" data-arg="${esc(c.id)}">Show it</button></div>`
+      : `<h2>Hide ${esc(c.name)}?</h2><p>It comes off the course list and the GPS won't offer it. Its files stay on the cart, so you can bring it back from Hide courses.</p>
+        <div class="mrow"><button class="tbtn" data-act="close">Cancel</button>
+        <button class="tbtn danger" data-act="hide" data-arg="${esc(c.id)}">Hide it</button></div>`);
+  }
+  function saveHidden(list) {
+    api("/api/courses/hidden", { courses: list })
+      .then(h => { hidden = h.courses; closeModal(); draw(); }, e => toast(String(e)));
   }
 
   function scoreTools() {
@@ -429,10 +487,12 @@
     return `<div class="clubgrid">${tiles}${add}</div>`;
   }
 
-  // on-screen keyboard for a custom club's name (the kiosk has no keyboard).
-  // Each word starts with a capital; Shift makes the next letter a capital too.
-  let nameBuf = "", nameShift = false;
+  // on-screen keyboard (the kiosk has no keyboard) for a custom club's name or
+  // a course search. Club names: each word starts with a capital; Shift makes
+  // the next letter a capital too. Searches are lowercase and count matches as you type.
+  let nameBuf = "", nameShift = false, kbdFor = "club";
   function nameKeyboard() {
+    if (kbdFor === "find") return findKeyboard();
     const rows = ["1234567890", "QWERTYUIOP", "ASDFGHJKL°", "ZXCVBNM-"];
     const keyBtn = k => `<button class="tbtn" data-act="nkey" data-arg="${esc(k)}">${esc(k)}</button>`;
     modal(`<h2>Custom club name</h2>
@@ -443,8 +503,23 @@
         <button class="tbtn go" data-act="nnext"${nameBuf.trim() ? "" : " disabled"}>Next: yards</button></div>`, true);
     $("modalbox").classList.add("kbdbox");
   }
+  function findKeyboard() {
+    const n = courseRows(null, false, nameBuf.trim()).length;
+    const rows = ["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM-"];
+    const keyBtn = k => `<button class="tbtn" data-act="nkey" data-arg="${esc(k)}">${esc(k)}</button>`;
+    modal(`<h2>Search courses</h2>
+      <div class="padval namebuf">${esc(nameBuf) || "&nbsp;"}</div>
+      <div class="kbd">${rows.map((r, i) => `<div class="kbdrow">${[...r].map(keyBtn).join("")}${i === 3 ? `<button class="tbtn" data-act="nkey" data-arg="⌫">⌫</button>` : ""}</div>`).join("")}
+        <div class="kbdrow"><button class="tbtn space" data-act="nkey" data-arg=" ">Space</button></div></div>
+      <div class="mrow"><button class="tbtn" data-act="close">Cancel</button>
+        <button class="tbtn go" data-act="nfind"${n ? "" : " disabled"}>${n ? `Show ${n} course${n === 1 ? "" : "s"}` : "No match"}</button></div>`, true);
+    $("modalbox").classList.add("kbdbox");
+  }
   function nameKey(k) {
     if (k === "⌫") nameBuf = nameBuf.slice(0, -1);
+    else if (kbdFor === "find") {
+      if (nameBuf.length < FIND_LEN && !(k === " " && (!nameBuf || nameBuf.endsWith(" ")))) nameBuf += k.toLowerCase();
+    }
     else if (nameBuf.length < NAME_LEN && !(k === " " && (!nameBuf || nameBuf.endsWith(" ")))) {
       const wordStart = !nameBuf || nameBuf.endsWith(" ");
       nameBuf += wordStart || nameShift ? k : k.toLowerCase();
@@ -575,7 +650,14 @@
       case "hist": histSel = +arg; return draw();
       case "histpage": histPage = +arg; histSel = histPage * HIST_PAGE; return draw();
       case "club": return clubPad(arg);
-      case "custom": nameBuf = ""; nameShift = false; return nameKeyboard();
+      case "custom": nameBuf = ""; nameShift = false; kbdFor = "club"; return nameKeyboard();
+      case "find": nameBuf = courseFind; kbdFor = "find"; return nameKeyboard();
+      case "nfind": courseFind = nameBuf.trim(); coursePage = 0; closeModal(); return draw();
+      case "findclear": courseFind = ""; coursePage = 0; return draw();
+      case "coursepage": coursePage = +arg; return draw();
+      case "courseedit": courseEdit = !courseEdit; coursePage = 0; return draw();
+      case "hide": return saveHidden(hidden.concat(arg));
+      case "unhide": return saveHidden(hidden.filter(id => id !== arg));
       case "nkey": return nameKey(arg);
       case "nshift": nameShift = !nameShift; return nameKeyboard();
       case "nnext": return nameDone();
@@ -588,6 +670,7 @@
       case "sheetclose": return show(null);
       case "course": {
         const c = courses.find(x => x.id === arg);
+        if (c && courseEdit) return askHide(c);
         return c && c.id !== current ? askSwitch(c) : undefined;
       }
       case "switch": return switchCourse(arg);
@@ -642,7 +725,7 @@
     api("/api/bag").catch(() => null),
     fetch("scorecard.json").then(r => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([cs, p, r, b, sc]) => {
-    if (cs) { courses = cs.courses; current = cs.current; }
+    if (cs) { courses = cs.courses; current = cs.current; hidden = cs.hidden || []; }
     if (p) player = { hcp: null, tees: {}, ...p };
     card = sc;
     teeSets = teeSetsFor(card);

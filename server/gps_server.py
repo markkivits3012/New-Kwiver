@@ -31,7 +31,8 @@ Trolley API (only when a trolley is configured; see trolley.py):
 Handheld remote (see remote.py):
     GET  /api/remote             link state, last seen, the remote's fix and battery
 Course, player and scorecard API (saved under --log-dir; see store.py):
-    GET  /api/courses            installed courses, which one is showing
+    GET  /api/courses            installed courses, which one is showing, hidden ones
+    POST /api/courses/hidden     {"courses": [id, ...]}: take those off the course list
     POST /api/course             {"id"}: show that course (saves it, restarts the server)
     GET  /api/player             {"hcp", "tees": {course: tee}}
     POST /api/player             change either
@@ -257,7 +258,8 @@ class Handler(SimpleHTTPRequestHandler):
             link = _remote["link"]
             return self._json(200, link.status() if link else {"state": "off"})
         if route == "/api/courses":
-            return self._json(200, {"current": _course["id"], "courses": _state["courses"]})
+            return self._json(200, {"current": _course["id"], "courses": _state["courses"],
+                                    "hidden": _state["store"].hidden()})
         if route == "/api/player":
             return self._json(200, _state["store"].player())
         if route == "/api/round":
@@ -297,7 +299,8 @@ class Handler(SimpleHTTPRequestHandler):
         gate, lib = _trolley["gate"], _review["lib"]
         if not ((route in ("/api/trolley/cmd", "/api/trolley/heartbeat") and gate)
                 or (route in ("/api/routes/review", "/api/routes/export") and lib)
-                or route in ("/api/course", "/api/player", "/api/round", "/api/round/finish", "/api/bag")):
+                or route in ("/api/course", "/api/courses/hidden", "/api/player", "/api/round",
+                             "/api/round/finish", "/api/bag")):
             return self.send_error(404)
         # Custom header + JSON type: a cross-site form or fetch can't send these
         # without a CORS preflight, which this server never approves.
@@ -319,6 +322,8 @@ class Handler(SimpleHTTPRequestHandler):
         store = _state["store"]
         if route == "/api/course":
             ok, msg = switch_course(body.get("id"))
+        elif route == "/api/courses/hidden":
+            ok, msg = store.save_hidden(body, _course["id"])
         elif route == "/api/player":
             ok, msg = store.save_player(body)
         elif route == "/api/round":

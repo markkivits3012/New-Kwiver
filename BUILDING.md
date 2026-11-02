@@ -147,6 +147,24 @@ sudo reboot
 
 Use `tashua` to go back. Run it with no name to list the installed courses.
 
+With many courses, use **Search** on the Menu, or **Hide courses** to take
+the ones you don't play off the list. Hiding is saved in
+`/var/lib/golf-map/hidden.json` and keeps the course's files.
+
+### Remove a course for good (PC)
+
+The map server can't delete files on the Pi (it can only write its state
+folder), so remove the course in the repo and update the Pi as usual:
+
+```bash
+git rm -r courses/<id>
+git commit -m "Remove <id>"
+python tools/make_update.py D:\
+```
+
+`pi/update.sh` replaces the whole install, so the course is gone after the
+update. Tashua Knolls (the project root) can't be removed this way.
+
 ## Scorecard: tees, yards, slope/rating, stroke index (optional)
 
 Without one, the **Menu** offers Back/Middle/Forward tees estimated from the

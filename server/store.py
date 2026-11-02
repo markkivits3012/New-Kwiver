@@ -6,6 +6,7 @@
     round.json     the round in progress
     rounds.jsonl   finished rounds, one per line
     bag.json       the clubs the golfer carries and how far each goes
+    hidden.json    installed courses taken off the course list (the files stay)
 
 Every write goes to a temp file that is renamed into place, so a power cut
 (the cart's key switch) leaves the old file, never half of one.
@@ -21,6 +22,7 @@ MAX_HOLES = 36
 HCP_RANGE = (-10.0, 54.0)  # WHS handicap index limits (plus 10 to 54)
 MAX_ROUNDS = 500           # history sent to the screen, newest first
 MAX_CLUBS = 30            # 19 standard clubs on the screen plus up to 10 of the golfer's own
+MAX_HIDDEN = 200
 
 
 class Store:
@@ -163,6 +165,26 @@ class Store:
             b = {"clubs": clubs}
             self._write("bag.json", b)
             return True, b
+
+    # ---- courses taken off the list -------------------------------------------------
+    # The install is read-only to the service, so the screen can't delete a
+    # course's files; it hides it. Removing the files goes through the PC (BUILDING.md).
+    def hidden(self):
+        h = self._read("hidden.json")
+        c = h.get("courses") if isinstance(h, dict) else None
+        return [x for x in c if isinstance(x, str) and ID.fullmatch(x)] if isinstance(c, list) else []
+
+    def save_hidden(self, body, current=None):
+        """Replace the hidden list: {"courses": [id, ...]}. The course on screen can't be hidden."""
+        c = body.get("courses")
+        if not (isinstance(c, list) and len(c) <= MAX_HIDDEN and all(isinstance(x, str) and ID.fullmatch(x) for x in c)):
+            return False, "Bad course list."
+        if current in c:
+            return False, "The course you're playing can't be hidden."
+        with self._lock:
+            h = {"courses": sorted(set(c))}
+            self._write("hidden.json", h)
+            return True, h
 
 
 def _number(v):

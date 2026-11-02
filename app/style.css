@@ -138,6 +138,7 @@ svg { display: block; }
   background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
 .item:active { background: #24402f; }
 .item.on { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
+.item.off { opacity: .5; }
 .itemname { font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .itemsub { font-size: 13px; color: var(--muted); }
 .tag { position: absolute; right: 12px; top: 12px; }

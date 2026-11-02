@@ -68,6 +68,10 @@ app falls back to drawn shapes.
 - **Menu:** pick the course (it shows how far away each one is) and the tees.
   When the GPS shows the cart at another installed course, a banner offers to
   switch. Switching restarts the map server on that course and reloads the screen.
+  The list shows 4 courses a page (‹ Back / More ›): the course being played
+  first, then the nearest. **Search** filters it by name with the on-screen
+  keyboard. **Hide courses** takes courses off the list (and out of the GPS
+  banner) without deleting them; tap a hidden one there to bring it back.
 - **Score:** set your handicap index (HCP), then tap − / + in the bar along the
   bottom for each hole (the first tap starts from par); ‹ › or a tap on the card
   changes hole. It opens on the hole the GPS puts the cart

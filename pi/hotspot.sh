@@ -58,7 +58,9 @@ if nmcli -t -f NAME connection show | grep -qx "$CON"; then
 else
   MAC=$(tr -d ':' < "/sys/class/net/$IFACE/address" 2>/dev/null || echo 0000)
   SSID="golfmap-${MAC: -4}"
-  PASS=$(tr -dc 'a-km-np-z2-9' < /dev/urandom | head -c 12)  # no l, o, 0, 1: easy to type
+  # no l, o, 0, 1: easy to type. `|| true`: tr dies of SIGPIPE when head has
+  # its 12 bytes, and pipefail would otherwise end the script right here
+  PASS=$(tr -dc 'a-km-np-z2-9' < /dev/urandom | head -c 12 || true)
   nmcli connection add type wifi ifname "$IFACE" con-name "$CON" ssid "$SSID" >/dev/null
   echo "   made network $SSID"
 fi

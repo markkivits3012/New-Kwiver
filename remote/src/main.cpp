@@ -21,6 +21,7 @@ static const uint16_t PI_PORT = 8091;
 static const uint32_t SEND_MS = 1000;      // hello / heartbeat
 static const uint32_t LINK_MS = 3000;      // no ack this long: link lost
 static const uint32_t REHELLO_MS = 10000;  // no ack this long: start a new session
+static const uint32_t JOIN_MS = 10000;     // not on the hotspot: try joining again this often
 static const uint32_t FIX_STALE_MS = 3000;
 static const uint32_t GPS_BAUDS[] = {38400, 9600, 115200};  // BK-880: M10 units ship at 38400, older at 9600
 static const float ACC_PER_HDOP_M = 2.5;   // no GST in the default NMEA: estimate error from HDOP
@@ -163,7 +164,18 @@ void readReplies() {
 }
 
 void network() {
-  if (!paired || WiFi.status() != WL_CONNECTED) return;
+  if (!paired) return;
+  if (WiFi.status() != WL_CONNECTED) {
+    // The core's auto-reconnect gives up for good if the hotspot wasn't there at
+    // the first try (remote switched on before the cart), so keep asking ourselves.
+    static uint32_t lastJoin = 0;
+    if (millis() - lastJoin >= JOIN_MS) {
+      lastJoin = millis();
+      WiFi.disconnect();
+      WiFi.begin(ssid.c_str(), pass.c_str());
+    }
+    return;
+  }
   readReplies();
   if (stopLeft && millis() >= nextStop) {
     sendStop();

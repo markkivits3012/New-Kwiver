@@ -21,7 +21,7 @@ static const uint16_t PI_PORT = 8091;
 static const uint32_t SEND_MS = 1000;      // hello / heartbeat
 static const uint32_t LINK_MS = 3000;      // no ack this long: link lost
 static const uint32_t REHELLO_MS = 10000;  // no ack this long: start a new session
-static const uint32_t JOIN_MS = 10000;     // not on the hotspot: try joining again this often
+static const uint32_t JOIN_MS = 20000;     // not on the hotspot this long since the last try: try again
 static const uint32_t FIX_STALE_MS = 3000;
 static const uint32_t GPS_BAUDS[] = {38400, 9600, 115200};  // BK-880: M10 units ship at 38400, older at 9600
 static const float ACC_PER_HDOP_M = 2.5;   // no GST in the default NMEA: estimate error from HDOP
@@ -44,6 +44,7 @@ WiFiUDP udp;
 Preferences prefs;
 
 String ssid, pass;
+uint32_t joinAt = 0;  // when the last attempt to join the hotspot started
 uint8_t key[16];
 bool paired = false;
 
@@ -167,12 +168,14 @@ void network() {
   if (!paired) return;
   if (WiFi.status() != WL_CONNECTED) {
     // The core's auto-reconnect gives up for good if the hotspot wasn't there at
-    // the first try (remote switched on before the cart), so keep asking ourselves.
-    static uint32_t lastJoin = 0;
-    if (millis() - lastJoin >= JOIN_MS) {
-      lastJoin = millis();
+    // the first try (remote switched on before the cart), so start a fresh attempt
+    // ourselves, but only once the last one has had time to finish: joining plus
+    // DHCP can take several seconds, and restarting midway means it never gets there.
+    if (millis() - joinAt >= JOIN_MS) {
       WiFi.disconnect();
+      delay(100);  // let the disconnect land first, or begin() can be ignored
       WiFi.begin(ssid.c_str(), pass.c_str());
+      joinAt = millis();
     }
     return;
   }
@@ -210,6 +213,7 @@ void loadPairing() {
   WiFi.disconnect();
   sid[0] = 0;
   if (paired) WiFi.begin(ssid.c_str(), pass.c_str());
+  joinAt = millis();
 }
 
 void serialCommand() {
@@ -243,8 +247,10 @@ void serialCommand() {
       loadPairing();
       Serial.println("OK unpaired");
     } else if (line == "STATUS") {
-      Serial.printf("paired=%d ssid=%s wifi=%d linked=%d trolley=%s gps_baud=%lu fix=%d sats=%lu bat=%d%%\n",
-                    paired, ssid.c_str(), WiFi.status() == WL_CONNECTED, linked(), trolley.c_str(),
+      // wifi is the core's wl_status_t: 3 connected, 1 hotspot not seen, 4 join refused
+      // (wrong password), 6 disconnected / still trying, 0 idle
+      Serial.printf("paired=%d ssid=%s wifi=%d ip=%s linked=%d trolley=%s gps_baud=%lu fix=%d sats=%lu bat=%d%%\n",
+                    paired, ssid.c_str(), (int)WiFi.status(), WiFi.localIP().toString().c_str(), linked(), trolley.c_str(),
                     (unsigned long)GPS_BAUDS[baudIdx], fixFresh(), (unsigned long)gps.satellites.value(),
                     batteryPct());
     } else if (line.length()) {

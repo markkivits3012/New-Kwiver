@@ -16,7 +16,8 @@ the pins are in [`src/board.h`](src/board.h).
 
 ## Wiring the GPS
 
-The BK-880's 4-pin lead goes to the board's extension header:
+The GPS lead goes to the board's extension header. A BN-880 has six wires:
+leave SDA and SCL (its compass) unconnected.
 
 | BK-880 | Board |
 |---|---|
@@ -25,8 +26,9 @@ The BK-880's 4-pin lead goes to the board's extension header:
 | VCC | 3V3 |
 | GND | GND |
 
-(Leads differ between batches; check the colours against the label on your
-module.) The firmware finds the GPS's baud rate by itself: it tries 38400, 9600
+(Leads differ between batches; go by the labels on the module, not the colours.
+Power it from 3V3, not 5V: it runs on either, but the ESP32's pins take 3.3 V at
+most and 3V3 stays on when the remote runs on battery.) The firmware finds the GPS's baud rate by itself: it tries 38400, 9600
 and 115200 until it sees good NMEA. Current M10 units ship at 38400, older ones
 at 9600. Put the GPS where it sees the sky, not under the screen or a hand.
 
@@ -84,8 +86,12 @@ make the cart follow them.
    pio device monitor
    ```
 
-   Paste the whole `PAIR ...` line and press Enter. The remote answers
-   `OK paired with golfmap-ab12`. Type `STATUS` to see its state. Close the
+   `pio device monitor` doesn't show what you type: add `--echo`. On Windows,
+   paste with a right-click. Paste the whole `PAIR ...` line and press Enter.
+   The remote answers `OK paired with golfmap-ab12, restarting` and restarts so
+   the new settings take effect (the monitor may drop: reopen it). Type
+   `STATUS` to see its state; `wifi=` is 3 when it's on the hotspot, 1 if it
+   can't see it, 4 if the hotspot refused it (wrong password). Close the
    monitor with Ctrl+C.
 
 3. Delete `golfmap-remote.txt` from the stick: it holds the key.
@@ -123,6 +129,8 @@ Open http://127.0.0.1:8080, then **Settings**: the Remote control card shows
 
 ## What's only checked on real hardware
 
-The firmware compiles, but the screen, touch, GPS wiring, battery reading, the
-hotspot and the link over the air have only been tested in the PC simulator so
-far (the Pi side's protocol code is the same either way).
+Checked on a real board with a BN-880 and the Pi: screen, touch, GPS fix, running
+on battery, pairing, joining the hotspot (also when the cart starts after the
+remote), the link and STOP reaching the cart. Not yet: STOP against a real
+trolley (none is connected, so the remote shows *No trolley*), the battery
+percentage against a real discharge, and range on the course.

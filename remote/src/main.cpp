@@ -237,8 +237,12 @@ void serialCommand() {
         prefs.putString("pass", p);
         prefs.putString("key", k);
         prefs.end();
-        loadPairing();
-        Serial.printf("OK paired with %s\n", s.c_str());
+        // Restart rather than loadPairing(): a join already in progress keeps the
+        // old password and the new one only took effect after a reset.
+        Serial.printf("OK paired with %s, restarting\n", s.c_str());
+        Serial.flush();
+        delay(200);
+        ESP.restart();
       }
     } else if (line == "UNPAIR") {
       prefs.begin("remote", false);

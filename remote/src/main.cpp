@@ -3,7 +3,8 @@
 // STOP button. Wire format and session rules: ../PROTOCOL.md (keep in step
 // with server/remote.py).
 //
-// USB serial commands (115200): PAIR <ssid> <password> <32-hex key>, UNPAIR, STATUS.
+// USB serial commands (115200): PAIR <ssid> <password> <32-hex key>, UNPAIR, STATUS, SCAN.
+// It also prints every Wi-Fi join and drop with the reason.
 #include <Arduino.h>
 #include <Arduino_GFX_Library.h>
 #include <ArduinoJson.h>
@@ -216,6 +217,47 @@ void loadPairing() {
   joinAt = millis();
 }
 
+// ---- Wi-Fi diagnostics over USB serial ---------------------------------------------
+// Prints every join, address and drop with the chip's reason code, so a remote that
+// won't stay on the hotspot says why (the Pi logs nothing for refused attempts).
+const char *dropReason(uint8_t r) {
+  switch (r) {
+    case 2: return "auth expired";
+    case 4: case 200: return "lost the hotspot's signal";
+    case 8: return "we left (retrying)";
+    case 15: case 204: return "handshake timed out: wrong password or weak signal";
+    case 201: return "hotspot not found";
+    case 202: return "refused: wrong password or security mismatch";
+    case 203: return "association refused";
+    default: return "";
+  }
+}
+
+void wifiEvent(WiFiEvent_t e, WiFiEventInfo_t info) {
+  if (e == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+    Serial.println("wifi: joined the hotspot");
+  } else if (e == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
+    Serial.printf("wifi: got address %s\n", IPAddress(info.got_ip.ip_info.ip.addr).toString().c_str());
+  } else if (e == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+    uint8_t r = info.wifi_sta_disconnected.reason;
+    Serial.printf("wifi: not connected, reason %u %s\n", r, dropReason(r));
+  }
+}
+
+void scan() {
+  Serial.println("scanning...");
+  int n = WiFi.scanNetworks();
+  if (n < 0) {
+    Serial.println("ERR scan failed (busy joining): try again");
+    return;
+  }
+  for (int i = 0; i < n; i++)
+    Serial.printf("%s channel %d signal %d dBm security %d\n", WiFi.SSID(i).c_str(), (int)WiFi.channel(i),
+                  (int)WiFi.RSSI(i), (int)WiFi.encryptionType(i));
+  Serial.printf("%d networks\n", n);
+  WiFi.scanDelete();
+}
+
 void serialCommand() {
   static String line;
   while (Serial.available()) {
@@ -244,6 +286,8 @@ void serialCommand() {
         delay(200);
         ESP.restart();
       }
+    } else if (line == "SCAN") {
+      scan();
     } else if (line == "UNPAIR") {
       prefs.begin("remote", false);
       prefs.clear();
@@ -253,12 +297,12 @@ void serialCommand() {
     } else if (line == "STATUS") {
       // wifi is the core's wl_status_t: 3 connected, 1 hotspot not seen, 4 join refused
       // (wrong password), 6 disconnected / still trying, 0 idle
-      Serial.printf("paired=%d ssid=%s wifi=%d ip=%s linked=%d trolley=%s gps_baud=%lu fix=%d sats=%lu bat=%d%%\n",
-                    paired, ssid.c_str(), (int)WiFi.status(), WiFi.localIP().toString().c_str(), linked(), trolley.c_str(),
+      Serial.printf("paired=%d ssid=%s wifi=%d ip=%s rssi=%d linked=%d trolley=%s gps_baud=%lu fix=%d sats=%lu bat=%d%%\n",
+                    paired, ssid.c_str(), (int)WiFi.status(), WiFi.localIP().toString().c_str(), (int)WiFi.RSSI(), linked(), trolley.c_str(),
                     (unsigned long)GPS_BAUDS[baudIdx], fixFresh(), (unsigned long)gps.satellites.value(),
                     batteryPct());
     } else if (line.length()) {
-      Serial.println("ERR commands: PAIR <ssid> <password> <key>, UNPAIR, STATUS");
+      Serial.println("ERR commands: PAIR <ssid> <password> <key>, UNPAIR, STATUS, SCAN");
     }
     line = "";
   }
@@ -382,6 +426,7 @@ void setup() {
   drawStop(false);
   touchBegin();
 
+  WiFi.onEvent(wifiEvent);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);  // light sleep delays replies by up to a beacon interval
   WiFi.setAutoReconnect(true);

@@ -91,8 +91,13 @@ make the cart follow them.
    The remote answers `OK paired with golfmap-ab12, restarting` and restarts so
    the new settings take effect (the monitor may drop: reopen it). Type
    `STATUS` to see its state; `wifi=` is 3 when it's on the hotspot, 1 if it
-   can't see it, 4 if the hotspot refused it (wrong password). Close the
-   monitor with Ctrl+C.
+   can't see it, 4 if the hotspot refused it (wrong password); `rssi=` is the
+   signal in dBm (about -70 or better is fine). Close the monitor with Ctrl+C.
+
+If it won't stay on the hotspot, leave the monitor open: every join, address
+and drop is printed with the Wi-Fi chip's reason (`wifi: not connected, reason
+15 handshake timed out ...`). `SCAN` lists the networks it can see, with
+channel, signal and security.
 
 3. Delete `golfmap-remote.txt` from the stick: it holds the key.
 

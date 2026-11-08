@@ -448,10 +448,10 @@ void setup() {
 
   WiFi.onEvent(wifiEvent);
   WiFi.mode(WIFI_STA);
-  // A new random hardware address each start: the Pi's Wi-Fi chip kept refusing the
-  // remote's fixed address (reason 202, strong signal, right password) while it let
-  // other devices in. Locally administered, unicast. The pairing key is what the
-  // cart trusts, not the address.
+  // A new random hardware address each start (locally administered, unicast), so
+  // the Pi never holds anything against an old one. Added while chasing refusals
+  // (reason 202) that turned out to be a crowded channel; cheap insurance. The
+  // pairing key is what the cart trusts, not the address.
   uint8_t mac[6];
   esp_fill_random(mac, sizeof mac);
   mac[0] = (mac[0] & 0xFE) | 0x02;

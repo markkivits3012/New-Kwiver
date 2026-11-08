@@ -99,6 +99,13 @@ and drop is printed with the Wi-Fi chip's reason (`wifi: not connected, reason
 15 handshake timed out ...`). `SCAN` lists the networks it can see, with
 channel, signal and security.
 
+If it keeps getting `reason 202` or `reason 2` with a strong signal and the
+right password (a phone gets in fine), the hotspot's channel is too crowded:
+two smart bulbs on channel 6 did this at home. `SCAN` shows who else is on
+each channel. Move the hotspot with `sudo CHANNEL=auto bash pi/hotspot.sh`
+(picks the quietest of 1, 6 and 11; drops a Wi-Fi SSH session) or
+`sudo CHANNEL=1 bash pi/hotspot.sh`. Worth doing once at the course too.
+
 3. Delete `golfmap-remote.txt` from the stick: it holds the key.
 
 Within a few seconds the remote shows **Linked**, and the cart's

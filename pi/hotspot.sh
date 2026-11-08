@@ -4,14 +4,16 @@
 #   sudo bash pi/hotspot.sh                       # set up (or check) and start it
 #   sudo bash pi/hotspot.sh /media/fampi/7CC9-3CC7  # also write the pairing line to the stick
 #   sudo bash pi/hotspot.sh off                   # stop it and don't start it at boot
+#   sudo CHANNEL=auto bash pi/hotspot.sh          # move it to the quietest channel here
+#   sudo CHANNEL=11 bash pi/hotspot.sh            # or to a given one (1, 6 or 11)
 #
 # The Pi's Wi-Fi becomes an access point at 10.42.0.1 (NetworkManager shared
 # mode); the remote joins it and sends to UDP 8091 (remote/PROTOCOL.md). While
 # it's on, the Pi can't also join another Wi-Fi network; updates come on the
 # USB stick anyway.
 #
-# Safe to re-run: keeps the existing network name, password and pairing key,
-# so a paired remote stays paired. Delete /var/lib/golf-map/remote.key and
+# Safe to re-run: keeps the existing network name, password, channel and pairing
+# key, so a paired remote stays paired. Delete /var/lib/golf-map/remote.key and
 # re-run to make a new key (then pair the remote again).
 set -euo pipefail
 
@@ -64,10 +66,33 @@ else
   nmcli connection add type wifi ifname "$IFACE" con-name "$CON" ssid "$SSID" >/dev/null
   echo "   made network $SSID"
 fi
+
+# Channel: other Wi-Fi on the same channel (two smart bulbs on 6 at home) kept the
+# remote from joining while phones still got in, so a new hotspot takes whichever of
+# 1, 6 and 11 is quietest here. A re-run keeps the channel unless CHANNEL is given.
+quietest() {
+  nmcli connection down "$CON" >/dev/null 2>&1 || true  # can't scan while it's the hotspot
+  sleep 2
+  { nmcli -t -f CHAN,SIGNAL device wifi list ifname "$IFACE" --rescan yes 2>/dev/null || true; } |
+    awk -F: '{ for (k = 1; k <= 11; k += 5) if ($1 >= k - 4 && $1 <= k + 4) load[k] += $2 }
+      END { best = 1; for (k = 6; k <= 11; k += 5) if (load[k] + 0 < load[best] + 0) best = k; print best }'
+}
+CUR=$(nmcli -g 802-11-wireless.channel connection show "$CON" 2>/dev/null || true)
+case "${CHANNEL:-}" in
+  1|6|11) CH=$CHANNEL; echo "   channel $CH (as asked)" ;;
+  auto|"")
+    if [ "${CHANNEL:-}" = "" ] && [ -n "$CUR" ] && [ "$CUR" != 0 ]; then
+      CH=$CUR; echo "   kept channel $CH (sudo CHANNEL=auto bash pi/hotspot.sh to pick again)"
+    else
+      CH=$(quietest); echo "   channel $CH (quietest of 1, 6, 11 here)"
+    fi ;;
+  *) echo "CHANNEL must be 1, 6, 11 or auto"; exit 1 ;;
+esac
+
 # (re)apply every setting, so a re-run repairs a hand-edited connection
 nmcli connection modify "$CON" \
   connection.autoconnect yes connection.autoconnect-priority 100 \
-  802-11-wireless.mode ap 802-11-wireless.band bg 802-11-wireless.channel 6 \
+  802-11-wireless.mode ap 802-11-wireless.band bg 802-11-wireless.channel "$CH" \
   ipv4.method shared ipv4.addresses 10.42.0.1/24 ipv6.method disabled \
   wifi-sec.key-mgmt wpa-psk wifi-sec.proto rsn wifi-sec.pairwise ccmp wifi-sec.group ccmp \
   wifi-sec.psk "$PASS"

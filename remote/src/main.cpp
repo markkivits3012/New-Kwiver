@@ -36,8 +36,9 @@ static const int16_t SWIPE_PX = 40;           // sideways move that counts as a 
 // colours (RGB565)
 static const uint16_t C_BG = 0x0861, C_FG = 0xFFFF, C_MUTED = 0x9CD3, C_GREEN = 0x3E8F,
                       C_AMBER = 0xF660, C_RED = 0xF20A, C_RED_DARK = 0x9800;
-// STOP button: the lower half of the screen, clear of the rounded corners
-static const int16_t SX = 14, SY = 150, SW = LCD_W - 28, SH = 112;
+// STOP button: a strip along the bottom, clear of the rounded corners. Still well over
+// the 44 px a finger needs; the space above is for the yards screen.
+static const int16_t SX = 14, SY = 212, SW = LCD_W - 28, SH = 54;
 
 Arduino_DataBus *bus = new Arduino_ESP32SPI(LCD_DC, LCD_CS, LCD_SCK, LCD_MOSI, GFX_NOT_DEFINED);
 Arduino_GFX *gfx = new Arduino_ST7789(bus, LCD_RST, 0, true, LCD_W, LCD_H, 0, LCD_ROW_OFFSET, 0, LCD_ROW_OFFSET);
@@ -372,10 +373,10 @@ bool touchRead(int16_t &x, int16_t &y) {
 
 // ---- screen -------------------------------------------------------------------------
 void drawStop(bool down) {
-  gfx->fillRoundRect(SX, SY, SW, SH, 22, down ? C_RED_DARK : C_RED);
+  gfx->fillRoundRect(SX, SY, SW, SH, 16, down ? C_RED_DARK : C_RED);
   gfx->setTextColor(C_FG);
-  gfx->setTextSize(6);
-  gfx->setCursor(SX + (SW - 4 * 36) / 2, SY + (SH - 48) / 2);
+  gfx->setTextSize(4);
+  gfx->setCursor(SX + (SW - 4 * 24) / 2, SY + (SH - 32) / 2);
   gfx->print("STOP");
 }
 
@@ -437,10 +438,12 @@ void drawYards() {
   else if (!fresh) top = "Waiting for cart";
   else if (yC < 0) top = "Off course";
   else top = yHole > 0 ? String("Hole ") + String(yHole) : String("To the green");
-  infoRow(0, 24, 18, 2, fresh && yC >= 0 ? C_MUTED : C_AMBER, top);
-  infoRow(1, 48, 48, 6, C_FG, fresh ? yds(yC) : String("--"));
-  infoRow(2, 102, 18, 2, C_FG, String("F ") + (fresh ? yds(yF) : String("--")) + "    B " + (fresh ? yds(yB) : String("--")));
-  infoRow(3, 126, 18, 2, C_MUTED, String("Cart ") + (fresh && yCart >= 0 ? String(String(yCart) + " yd") : String("--")));
+  // text size n is 6n px a character wide and 8n tall: center 8 fits "999" (144 px),
+  // F / B at 3 fits "F 999  B 999" (216 px) in the 240 px width
+  infoRow(0, 26, 18, 2, fresh && yC >= 0 ? C_MUTED : C_AMBER, top);
+  infoRow(1, 52, 66, 8, C_FG, fresh ? yds(yC) : String("--"));
+  infoRow(2, 130, 26, 3, C_FG, String("F ") + (fresh ? yds(yF) : String("--")) + "  B " + (fresh ? yds(yB) : String("--")));
+  infoRow(3, 176, 18, 2, C_MUTED, String("Cart ") + (fresh && yCart >= 0 ? String(String(yCart) + " yd") : String("--")));
 }
 
 void drawInfo() {

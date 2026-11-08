@@ -12,6 +12,7 @@
 #include <TinyGPSPlus.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include <esp_wifi.h>
 #include <Wire.h>
 #include <mbedtls/md.h>
 
@@ -447,6 +448,15 @@ void setup() {
 
   WiFi.onEvent(wifiEvent);
   WiFi.mode(WIFI_STA);
+  // A new random hardware address each start: the Pi's Wi-Fi chip kept refusing the
+  // remote's fixed address (reason 202, strong signal, right password) while it let
+  // other devices in. Locally administered, unicast. The pairing key is what the
+  // cart trusts, not the address.
+  uint8_t mac[6];
+  esp_fill_random(mac, sizeof mac);
+  mac[0] = (mac[0] & 0xFE) | 0x02;
+  esp_wifi_set_mac(WIFI_IF_STA, mac);
+  Serial.printf("wifi: using address %02x:%02x:%02x:%02x:%02x:%02x\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   WiFi.setSleep(false);  // light sleep delays replies by up to a beacon interval
   WiFi.setAutoReconnect(true);
   udp.begin(PI_PORT);

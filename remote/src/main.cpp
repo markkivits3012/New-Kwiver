@@ -234,21 +234,40 @@ const char *dropReason(uint8_t r) {
 }
 
 void wifiEvent(WiFiEvent_t e, WiFiEventInfo_t info) {
+  // the core retries a failed join several times a second: print a reason once,
+  // then only every 20th repeat, so the serial monitor stays usable
+  static uint8_t lastReason = 0;
+  static uint32_t repeats = 0;
   if (e == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+    lastReason = 0;
     Serial.println("wifi: joined the hotspot");
   } else if (e == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
-    Serial.printf("wifi: got address %s\n", IPAddress(info.got_ip.ip_info.ip.addr).toString().c_str());
+    Serial.printf("wifi: got address %s, signal %d dBm\n",
+                  IPAddress(info.got_ip.ip_info.ip.addr).toString().c_str(), (int)WiFi.RSSI());
   } else if (e == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
     uint8_t r = info.wifi_sta_disconnected.reason;
-    Serial.printf("wifi: not connected, reason %u %s\n", r, dropReason(r));
+    if (r == lastReason && ++repeats % 20) return;
+    if (r != lastReason) repeats = 1;
+    lastReason = r;
+    Serial.printf("wifi: not connected, reason %u %s%s\n", r, dropReason(r),
+                  repeats > 1 ? " (still)" : "");
   }
 }
 
 void scan() {
   Serial.println("scanning...");
-  int n = WiFi.scanNetworks();
+  // the chip can't scan while it's busy joining: stop joining, scan, then rejoin
+  WiFi.setAutoReconnect(false);
+  int n = -1;
+  for (int i = 0; i < 3 && n < 0; i++) {
+    WiFi.disconnect();
+    delay(300);
+    n = WiFi.scanNetworks();
+  }
+  WiFi.setAutoReconnect(true);
+  joinAt = millis() - JOIN_MS;  // network() starts a fresh join right away
   if (n < 0) {
-    Serial.println("ERR scan failed (busy joining): try again");
+    Serial.println("ERR scan failed: try again");
     return;
   }
   for (int i = 0; i < n; i++)

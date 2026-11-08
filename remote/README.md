@@ -126,6 +126,14 @@ then pair the remote again. `UNPAIR` on the serial monitor wipes a remote.
 - **STOP:** acts the moment you touch it. Shows *STOP sent*, then
   *Trolley stopped* once the cart confirms. It works whether or not the
   trolley was told to move from the screen.
+- **Yards screen:** swipe right (or tap) above STOP. A big number to the
+  middle of the green from where you stand, front (F) and back (B) under it,
+  and how far the cart is. The cart works these out (it knows the hole on its
+  screen and the green), so they follow the hole the cart is showing. *Off
+  course*: you're more than 2 km from the course; *Waiting for cart*: the
+  cart's map isn't sending them (is its screen running?). Swipe left (or tap)
+  for the status lines. STOP stays at the bottom on both, and a swipe that
+  slides onto it doesn't press it.
 - **PWR key:** hold 2 s to switch off (on battery).
 
 ## Testing without the hardware
@@ -143,6 +151,7 @@ Open http://127.0.0.1:8080, then **Settings**: the Remote control card shows
 
 Checked on a real board with a BN-880 and the Pi: screen, touch, GPS fix, running
 on battery, pairing, joining the hotspot (also when the cart starts after the
-remote), the link and STOP reaching the cart. Not yet: STOP against a real
+remote), the link and STOP reaching the cart. Not yet: the yards screen and
+swipes (simulator-tested on the cart's side only), STOP against a real
 trolley (none is connected, so the remote shows *No trolley*), the battery
 percentage against a real discharge, and range on the course.

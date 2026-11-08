@@ -915,6 +915,31 @@
   setInterval(updatePanel, 2000); // flips status to "GPS lost" when fixes stop
   document.addEventListener("contextmenu", e => e.preventDefault());
 
+  // ---- handheld remote: yards for its second screen ---------------------------------
+  // The remote only knows its own GPS; the hole and the green live here. While it's
+  // linked, work out its yards to the green (as the panel does for the cart) and to
+  // the cart, and hand them to the server, which passes them on in its replies.
+  function feedRemote() {
+    fetch("/api/remote").then(r => r.json()).then(R => {
+      if (!R || R.state !== "linked") return;
+      const h = holes[idx], out = { hole: Number(h.no) || idx + 1, f: null, c: null, b: null, cart: null };
+      if (R.fix) {
+        const p = proj([R.fix.lat, R.fix.lon]);
+        if (dist(p, courseCenter) < OFF_COURSE_M) {
+          out.c = yd(dist(p, h.pin));
+          const d = greenDepth(p, h);
+          if (d) { out.f = yd(d.front); out.b = yd(d.back); }
+        }
+        if (fix && Date.now() - fix.t < STALE_MS) out.cart = yd(dist(p, fix.p));
+      }
+      return fetch("/api/remote/yards", {
+        method: "POST", body: JSON.stringify(out),
+        headers: { "Content-Type": "application/json", "X-Trolley-Client": "1" },
+      });
+    }).catch(() => {});
+  }
+  setInterval(feedRemote, 2000);
+
   // What menus.js (Menu, Score, Settings) reads and calls. It sets the hooks.
   const hooks = { render() {}, fix() {} };
   window.APP = {

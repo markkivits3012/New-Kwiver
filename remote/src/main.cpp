@@ -30,6 +30,8 @@ static const float ACC_PER_HDOP_M = 2.5;   // no GST in the default NMEA: estima
 static const int STOP_COPIES = 5;
 static const uint32_t STOP_GAP_MS = 100;
 static const uint32_t POWER_HOLD_MS = 2000;
+static const uint32_t YARDS_STALE_MS = 5000;  // no yardages from the cart this long: show --
+static const int16_t SWIPE_PX = 40;           // sideways move that counts as a swipe; less is a tap
 
 // colours (RGB565)
 static const uint16_t C_BG = 0x0861, C_FG = 0xFFFF, C_MUTED = 0x9CD3, C_GREEN = 0x3E8F,
@@ -58,6 +60,11 @@ int stopLeft = 0;
 uint32_t nextStop = 0, stopPressed = 0;
 uint32_t baudIdx = 0, baudSince = 0, lastPassed = 0;
 bool touching = false;
+bool swiping = false;            // touch began above STOP: a swipe or a tap, judged on release
+int16_t tx0, ty0, tx1, ty1;
+int page = 0;                    // 0 status, 1 yards (swipe right for yards, left back)
+int yHole = -1, yF = -1, yC = -1, yB = -1, yCart = -1;  // from the cart's acks; -1 = unknown
+uint32_t yardsAt = 0;
 uint32_t pwrDown = 0;
 
 // ---- signing --------------------------------------------------------------------
@@ -160,6 +167,15 @@ void readReplies() {
     } else if (!strcmp(k, "ack")) {
       lastAck = millis();
       trolley = d["trolley"] | "";
+      JsonVariant y = d["y"];
+      if (!y.isNull()) {
+        yHole = y["h"] | -1;
+        yF = y["f"] | -1;
+        yC = y["c"] | -1;
+        yB = y["b"] | -1;
+        yCart = y["cart"] | -1;
+        yardsAt = millis();
+      }
     } else if (!strcmp(k, "rehello")) {
       sid[0] = 0;
     }
@@ -396,6 +412,49 @@ void drawStatus() {
   line(118, C_BG, "Battery " + String(batteryPct()) + "%", C_MUTED);
 }
 
+// Yards page: distances to the green from where the remote is, worked out by the cart
+// (it knows the hole and the green), and the distance back to the cart underneath.
+// Rows are redrawn only when their text changes, so the big number doesn't flicker.
+String shown[4];
+
+void infoRow(int i, int16_t y, int16_t h, uint8_t size, uint16_t color, const String &t) {
+  if (shown[i] == t) return;
+  shown[i] = t;
+  gfx->fillRect(0, y, LCD_W, h, C_BG);
+  gfx->setTextSize(size);
+  gfx->setTextColor(color, C_BG);
+  gfx->setCursor((LCD_W - (int16_t)t.length() * 6 * size) / 2, y);
+  gfx->print(t);
+}
+
+String yds(int v) { return v >= 0 ? String(v) : String("--"); }
+
+void drawYards() {
+  bool fresh = yardsAt && millis() - yardsAt < YARDS_STALE_MS;
+  String top;
+  if (!linked()) top = "Not linked";
+  else if (!fixFresh()) top = "No GPS fix";
+  else if (!fresh) top = "Waiting for cart";
+  else if (yC < 0) top = "Off course";
+  else top = yHole > 0 ? String("Hole ") + String(yHole) : String("To the green");
+  infoRow(0, 24, 18, 2, fresh && yC >= 0 ? C_MUTED : C_AMBER, top);
+  infoRow(1, 48, 48, 6, C_FG, fresh ? yds(yC) : String("--"));
+  infoRow(2, 102, 18, 2, C_FG, String("F ") + (fresh ? yds(yF) : String("--")) + "    B " + (fresh ? yds(yB) : String("--")));
+  infoRow(3, 126, 18, 2, C_MUTED, String("Cart ") + (fresh && yCart >= 0 ? String(String(yCart) + " yd") : String("--")));
+}
+
+void drawInfo() {
+  if (page == 1) drawYards();
+  else drawStatus();
+}
+
+void setPage(int p) {
+  page = p;
+  gfx->fillRect(0, 20, LCD_W, SY - 22, C_BG);
+  for (String &t : shown) t = "";
+  drawInfo();
+}
+
 void touch() {
   int16_t x, y;
   bool now = touchRead(x, y);
@@ -405,10 +464,25 @@ void touch() {
     nextStop = 0;
     stopPressed = millis();
     drawStop(true);
+  } else if (now && !touching) {  // touch-down above STOP: follow it
+    swiping = true;
+    tx0 = tx1 = x;
+    ty0 = ty1 = y;
+  } else if (now && swiping) {
+    tx1 = x;
+    ty1 = y;
   } else if (!now && touching) {
-    drawStop(false);
+    if (swiping) {
+      int16_t dx = tx1 - tx0, dy = ty1 - ty0;
+      if (abs(dx) >= SWIPE_PX && abs(dx) > abs(dy)) setPage(dx > 0 ? 1 : 0);  // right: yards
+      else if (abs(dx) < SWIPE_PX && abs(dy) < SWIPE_PX) setPage(1 - page);   // tap: flip
+    } else {
+      drawStop(false);
+    }
+    swiping = false;
   }
-  touching = now && (onStop || touching);
+  // a swipe that slides onto STOP doesn't press it: STOP needs its own touch-down
+  touching = now;
 }
 
 void powerKey() {
@@ -475,7 +549,7 @@ void loop() {
   powerKey();
   if (millis() - lastDraw >= 500) {
     lastDraw = millis();
-    drawStatus();
+    drawInfo();
   }
   delay(2);
 }

@@ -25,6 +25,7 @@ LINK_TIMEOUT_S = 3.0              # same as the trolley's screen heartbeat
 MAX_PENDING = 4
 MAX_JSON = 400
 KEY_FILE = "remote.key"
+YARDS_STALE_S = 10.0              # app stopped sending yardages: the remote shows --
 
 
 def sign(key, obj):
@@ -83,6 +84,7 @@ class RemoteLink:
         self.fixed_key = key
         self.lock = threading.Lock()
         self.sid, self.last_seq, self.pending = None, 0, []
+        self.yards, self.yards_t = None, 0.0   # from the app, sent back in each ack
         self.st = {"state": "off", "seen": None, "addr": None, "fix": None, "bat": None,
                    "stop_t": None, "mock": key is not None}
         threading.Thread(target=self._run, daemon=True).start()
@@ -90,10 +92,31 @@ class RemoteLink:
     def status(self):
         with self.lock:
             s = dict(self.st)
+            s["yards"] = self.yards if time.time() - self.yards_t < YARDS_STALE_S else None
         if s["state"] == "linked" and time.time() - s["seen"] > LINK_TIMEOUT_S:
             s["state"] = "lost"  # follow mode, once built, must stop here
         s["t"] = time.time()
         return s
+
+    def set_yards(self, body):
+        """Yardages for the remote's second screen, worked out by the app (it knows
+        the hole and the green; POST /api/remote/yards). Hole number, front /
+        center / back of the green and the cart, each in yards or None."""
+        h = body.get("hole")
+        y = {"h": h if _num(h, 1, 99) and h == int(h) else None}
+        for k in ("f", "c", "b", "cart"):
+            v = body.get(k)
+            y[k] = round(v) if _num(v, 0, 9999) else None
+        with self.lock:
+            self.yards, self.yards_t = y, time.time()
+        return True, y
+
+    def _ack(self, seq):
+        a = {"k": "ack", "seq": seq, "trolley": self.trolley_state()}
+        with self.lock:
+            if self.yards and time.time() - self.yards_t < YARDS_STALE_S:
+                a["y"] = self.yards
+        return a
 
     def _set(self, **kw):
         with self.lock:
@@ -142,7 +165,7 @@ class RemoteLink:
             # always obeyed, even replayed or without a session: stopping is safe
             self.on_stop()
             self._set(stop_t=time.time())
-            return {"k": "ack", "seq": msg.get("seq"), "trolley": self.trolley_state()}
+            return self._ack(msg.get("seq"))
         if k == "hello":
             n = msg.get("n")
             if not (isinstance(n, str) and len(n) == 8):
@@ -167,7 +190,7 @@ class RemoteLink:
                 self.st.update(state="linked", seen=time.time(), addr=addr[0],
                                fix=clean_fix(msg.get("fix")),
                                bat=round(bat) if _num(bat, 0, 100) else None)
-            return {"k": "ack", "seq": seq, "trolley": self.trolley_state()}
+            return self._ack(seq)
         return None
 
 

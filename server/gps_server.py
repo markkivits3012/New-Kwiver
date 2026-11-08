@@ -30,6 +30,8 @@ Trolley API (only when a trolley is configured; see trolley.py):
     POST /api/trolley/heartbeat  the screen is alive; the trolley stops without it
 Handheld remote (see remote.py):
     GET  /api/remote             link state, last seen, the remote's fix and battery
+    POST /api/remote/yards       {"hole", "f", "c", "b", "cart"}: yards for the remote's
+                                 second screen (the app sends them; stale after 10 s)
 Course, player and scorecard API (saved under --log-dir; see store.py):
     GET  /api/courses            installed courses, which one is showing, hidden ones
     POST /api/courses/hidden     {"courses": [id, ...]}: take those off the course list
@@ -300,7 +302,8 @@ class Handler(SimpleHTTPRequestHandler):
         if not ((route in ("/api/trolley/cmd", "/api/trolley/heartbeat") and gate)
                 or (route in ("/api/routes/review", "/api/routes/export") and lib)
                 or route in ("/api/course", "/api/courses/hidden", "/api/player", "/api/round",
-                             "/api/round/finish", "/api/bag")):
+                             "/api/round/finish", "/api/bag")
+                or (route == "/api/remote/yards" and _remote["link"])):
             return self.send_error(404)
         # Custom header + JSON type: a cross-site form or fetch can't send these
         # without a CORS preflight, which this server never approves.
@@ -332,6 +335,8 @@ class Handler(SimpleHTTPRequestHandler):
             ok, msg = store.finish_round(body.get("save", True) is not False)
         elif route == "/api/bag":
             ok, msg = store.save_bag(body)
+        elif route == "/api/remote/yards":
+            ok, msg = _remote["link"].set_yards(body)
         elif route == "/api/trolley/heartbeat":
             gate.heartbeat()
             ok, msg = True, "ok"

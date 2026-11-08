@@ -58,7 +58,7 @@ Pi → remote:
 | k | Reply to | Fields |
 |---|---|---|
 | `welcome` | `hello` | `n` (echoed), `sid`: 16 hex chars |
-| `ack` | `hb`, `stop` | `seq` (echoed), `trolley`: `none`, `idle`, `driving` or `stopped` |
+| `ack` | `hb`, `stop` | `seq` (echoed), `trolley`: `none`, `idle`, `driving` or `stopped`; `y` (when the app sent yards in the last 10 s): `h` hole, `f` / `c` / `b` yards from the remote to the front / center / back of the green, `cart` yards to the cart, each a number or `null` |
 | `rehello` | `hb` with an unknown `sid` | (nothing) |
 
 ## Sessions and replay

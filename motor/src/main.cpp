@@ -34,7 +34,7 @@ struct Motor {
 // D0 = GPIO16. D1 and D2 stay low through boot and reset, so the speed lines can't
 // twitch a wheel; still fit a 10k pull-down on each speed line to be sure.
 Motor motors[2] = {
-  {"left", 5, 14, 13, false},   // speed D1, direction D5, brake D7
+  {"left", 5, 14, 13, true},    // speed D1, direction D5, brake D7 (rev: ran backward)
   {"right", 4, 12, 16, false},  // speed D2, direction D6, brake D0
 };
 

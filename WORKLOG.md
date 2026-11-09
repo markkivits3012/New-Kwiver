@@ -11,9 +11,12 @@ what's next). Details belong in the docs it links to; keep this short.
   after 3 s). The Pi will send the same serial commands over USB later.
 - Hardware: two "6-60V 400W" ZS-X11H boards, hoverboard motors, 40 V battery.
   No level shifter yet: trying 3.3 V signals direct first.
-- **Written, not yet compiled or run:** `motor/` firmware and README (wiring,
-  commands). Milestone 1: both wheels forward from the serial monitor, wheels
-  off the ground.
+- **Left wheel works** (Nov 9, 12 V 5 A bench supply, off the ground): `L 10`
+  to `L 30` start it on its own and change speed; `S` stops it. Took: speed
+  on the board's **P** pin (not 0-5V) with the PWM pads shorted (V2 board),
+  phases MA green / MB blue / MC yellow, a 5 A supply. All in motor/README.md.
+- Next: which way is forward (flip `rev` if needed), wire the right board the
+  same way, then `F` drives both. Then the Pi sending commands over USB.
 - The Pi is reachable at home over Ethernet (`ssh fampi@192.168.6.65`, or
   `kwiver.local`); the hotspot only uses Wi-Fi, so both work at once.
 

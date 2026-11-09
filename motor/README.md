@@ -20,27 +20,42 @@ ground.
 
 ## Wiring
 
-On each ZS-X11H, **remove the jumper on its speed knob** so it takes PWM.
+Our boards are **ZS-X11H V2**. The speed signal is PWM, so it goes to the
+**P** pin on the small row along the bottom edge (G S V P G, left to right),
+**not** to the `0-5V` screw terminal: that one wants a steady voltage, and PWM
+on it only makes the motor hum. P takes 2.5-5 V PWM at 50 Hz-20 kHz, so the
+NodeMCU's 3.3 V works directly. Before P does anything:
+
+- **Short the "external PWM" solder pads** under the heatsink (a blob of
+  solder across the two empty pads; the maker's picture marks them "usually
+  off, external PWM signal input short connected").
+- Turn the **blue speed knob fully anticlockwise** (minimum). V2 has no
+  jumper cap.
 
 | NodeMCU | Left board | Right board |
 |---|---|---|
-| D1 (GPIO5) | speed (PWM) | |
-| D5 (GPIO14) | direction (DR) | |
-| D7 (GPIO13) | brake (BRAK) | |
-| D2 (GPIO4) | | speed (PWM) |
-| D6 (GPIO12) | | direction (DR) |
-| D0 (GPIO16) | | brake (BRAK) |
-| GND | signal GND | signal GND |
+| D1 (GPIO5) | **P** (bottom row, soldered) | |
+| D5 (GPIO14) | DIR (screw terminal) | |
+| D7 (GPIO13) | BRAKE | |
+| D2 (GPIO4) | | **P** |
+| D6 (GPIO12) | | DIR |
+| D0 (GPIO16) | | BRAKE |
+| GND | GND | GND |
+
+The screw terminals on the control side are, top to bottom: 5V (an output:
+leave it), 0-5V (unused), GND, DIR, BRAKE (on at 2.5-5 V), STOP (active low;
+leave it unconnected).
 
 - **GND to each board's signal ground is required**, or nothing works.
 - A 10k resistor from each speed line to GND keeps the wheels still while
   the NodeMCU boots or is unplugged.
-- Motor phase and hall wires go to the boards as for any hoverboard motor. If a
-  wheel judders or won't start, the hall or phase order is off (low voltage
-  first while sorting that out).
-- The NodeMCU is 3.3 V and the boards expect 5 V signals. Try it direct first.
-  If a wheel doesn't respond to speed, add a level shifter (74AHCT125) or one
-  transistor per line.
+- Hall wires (thin): the board's 5-wire plug to the motor's, name to name
+  (5V, GND, Ha, Hb, Hc). Phases (thick): **MA green, MB blue, MC yellow**
+  worked on the left motor (yellow/green/blue in order needed a push to
+  start). With the halls fixed, the right phase order starts the wheel on its
+  own, smooth and quiet at low current; try the 6 orders, power off between.
+- Test with a supply that can give **5 A or more**: at 800 mA the motor only
+  hummed.
 
 ## Build, flash, drive
 

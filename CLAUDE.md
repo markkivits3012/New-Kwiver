@@ -94,6 +94,9 @@ The work PC can't reach the Pi over the network (SSH is blocked). Use a USB stic
 
 ## Workflow
 
+- **Start of a session: read [WORKLOG.md](WORKLOG.md)** (where work stands,
+  what's untested, what's next). Work happens on more than one computer and
+  chat history doesn't travel; at the end of a chunk of work, update it.
 - Commit only when asked; the user usually says "commit and pack" after testing
   a feature. Do both: commit, then build the USB package and verify its contents.
 - Keep README.md and BUILDING.md current when behaviour or file formats change.

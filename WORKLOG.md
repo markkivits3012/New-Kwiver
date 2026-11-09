@@ -4,6 +4,19 @@ Where things stand, so work can pick up on another computer. Newest first.
 Update it at the end of a working session (what changed, what's untested,
 what's next). Details belong in the docs it links to; keep this short.
 
+## Wheel motors (NodeMCU + two ZS-X11H), started Nov 9 2026
+
+- Decision: the wheels are driven by a NodeMCU (ESP8266), not the Pi's GPIO,
+  so they stop on their own if the Pi or the link fails (commands time out
+  after 3 s). The Pi will send the same serial commands over USB later.
+- Hardware: two "6-60V 400W" ZS-X11H boards, hoverboard motors, 40 V battery.
+  No level shifter yet: trying 3.3 V signals direct first.
+- **Written, not yet compiled or run:** `motor/` firmware and README (wiring,
+  commands). Milestone 1: both wheels forward from the serial monitor, wheels
+  off the ground.
+- The Pi is reachable at home over Ethernet (`ssh fampi@192.168.6.65`, or
+  `kwiver.local`); the hotspot only uses Wi-Fi, so both work at once.
+
 ## Handheld remote (ESP32-S3), Nov 6–9 2026
 
 ### Where it stands
